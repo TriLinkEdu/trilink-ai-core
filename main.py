@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from config.settings import Settings
 from config.plugin_registry import get_registry, PluginRegistry
 from infrastructure.db.postgres import init_pool
-from api.routes import mastery, recommendations, learning_path
+from api.routes import mastery, recommendations, learning_path, content
 
 
 @asynccontextmanager
@@ -20,6 +20,7 @@ def create_app() -> FastAPI:
     app.include_router(mastery.router,          prefix="/api/ai")
     app.include_router(recommendations.router,  prefix="/api/ai")
     app.include_router(learning_path.router,    prefix="/api/ai")
+    app.include_router(content.router,          prefix="/api/ai")
 
     @app.get("/health")
     def health():
