@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from config.settings import Settings
 from config.plugin_registry import get_registry, PluginRegistry
 from infrastructure.db.postgres import init_pool
-from api.routes import mastery
+from api.routes import mastery, recommendations
 
 
 @asynccontextmanager
@@ -17,7 +17,8 @@ async def lifespan(app: FastAPI):
 def create_app() -> FastAPI:
     app = FastAPI(title="TriLink AI Engine", version="1.0.0", lifespan=lifespan)
 
-    app.include_router(mastery.router, prefix="/api/ai")
+    app.include_router(mastery.router,          prefix="/api/ai")
+    app.include_router(recommendations.router,  prefix="/api/ai")
 
     @app.get("/health")
     def health():
