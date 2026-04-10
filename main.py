@@ -1,24 +1,23 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from config.settings import Settings
-from config.plugin_registry import get_registry
+from config.plugin_registry import get_registry, PluginRegistry
 from infrastructure.db.postgres import init_pool
+from api.routes import mastery
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = Settings()
     init_pool(settings.POSTGRES_URL)
-    get_registry()          # warm up plugins (loads embedding model, etc.)
+    app.state.registry = get_registry()
     yield
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(
-        title="TriLink AI Engine",
-        version="1.0.0",
-        lifespan=lifespan,
-    )
+    app = FastAPI(title="TriLink AI Engine", version="1.0.0", lifespan=lifespan)
+
+    app.include_router(mastery.router, prefix="/api/ai")
 
     @app.get("/health")
     def health():
