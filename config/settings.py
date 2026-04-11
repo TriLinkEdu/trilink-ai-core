@@ -27,9 +27,7 @@ class Settings(BaseSettings):
     MASTERY_THRESHOLD: float = 0.70
     RECOMMENDATION_LIMIT: int = 5
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
+    model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
     @property
     def bkt_params(self) -> dict:
