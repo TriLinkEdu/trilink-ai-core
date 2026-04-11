@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     BKT_P_SLIP: float = 0.1
     BKT_P_GUESS: float = 0.25
 
-    # --- Thresholds ---
+    INTERNAL_API_KEY: str = Field(default="", description="Set to require X-API-Key header on all endpoints")
     MASTERY_THRESHOLD: float = 0.70
     RECOMMENDATION_LIMIT: int = 5
 

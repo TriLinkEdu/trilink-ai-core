@@ -1,19 +1,17 @@
-import asyncio
 import json
 import re
-import google.generativeai as genai
+from openai import AsyncOpenAI
 from core.interfaces.content_generator import ContentGenerator
 from core.models.topic import Topic
 from core.exceptions import ContentGenerationError
 
 
-class GeminiGenerator(ContentGenerator):
+class OpenAIGenerator(ContentGenerator):
 
-    MODEL = "gemini-1.5-flash"
+    MODEL = "gpt-4o-mini"  # cheapest capable model
 
     def __init__(self, api_key: str):
-        genai.configure(api_key=api_key)
-        self._model = genai.GenerativeModel(self.MODEL)
+        self._client = AsyncOpenAI(api_key=api_key)
 
     async def generate_lesson(self, topic: Topic) -> str:
         prompt = (
@@ -24,10 +22,12 @@ class GeminiGenerator(ContentGenerator):
             f"Practice Problems, Summary. Use language suitable for Grade {topic.grade_level}. Output markdown."
         )
         try:
-            resp = await asyncio.get_event_loop().run_in_executor(
-                None, self._model.generate_content, prompt
+            resp = await self._client.chat.completions.create(
+                model=self.MODEL,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=2500,
             )
-            return resp.text
+            return resp.choices[0].message.content
         except Exception as e:
             raise ContentGenerationError(topic.id, str(e)) from e
 
@@ -39,10 +39,14 @@ class GeminiGenerator(ContentGenerator):
             '"answer":"A","explanation":"...","difficulty":"easy|medium|hard"}]'
         )
         try:
-            resp = await asyncio.get_event_loop().run_in_executor(
-                None, self._model.generate_content, prompt
+            resp = await self._client.chat.completions.create(
+                model=self.MODEL,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=2000,
+                temperature=0.5,
             )
-            match = re.search(r"\[.*\]", resp.text, re.DOTALL)
+            raw = resp.choices[0].message.content
+            match = re.search(r"\[.*\]", raw, re.DOTALL)
             if not match:
                 raise ContentGenerationError(topic.id, "no JSON array in response")
             return json.loads(match.group())

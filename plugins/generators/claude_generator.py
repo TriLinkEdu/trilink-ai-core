@@ -1,3 +1,4 @@
+import asyncio
 import json
 import re
 import anthropic
@@ -8,7 +9,7 @@ from core.exceptions import ContentGenerationError
 
 class ClaudeGenerator(ContentGenerator):
 
-    MODEL = "claude-3-haiku-20240307"  # cheapest Claude
+    MODEL = "claude-3-haiku-20240307"
 
     def __init__(self, api_key: str):
         self._client = anthropic.Anthropic(api_key=api_key)
@@ -22,9 +23,12 @@ class ClaudeGenerator(ContentGenerator):
             f"Practice Problems, Summary. Use language suitable for Grade {topic.grade_level}. Output markdown."
         )
         try:
-            msg = self._client.messages.create(
-                model=self.MODEL, max_tokens=2500,
-                messages=[{"role": "user", "content": prompt}],
+            msg = await asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda: self._client.messages.create(
+                    model=self.MODEL, max_tokens=2500,
+                    messages=[{"role": "user", "content": prompt}],
+                ),
             )
             return msg.content[0].text
         except Exception as e:
@@ -38,10 +42,12 @@ class ClaudeGenerator(ContentGenerator):
             '"answer":"A","explanation":"...","difficulty":"easy|medium|hard"}]'
         )
         try:
-            msg = self._client.messages.create(
-                model=self.MODEL,
-                max_tokens=2000,
-                messages=[{"role": "user", "content": prompt}],
+            msg = await asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda: self._client.messages.create(
+                    model=self.MODEL, max_tokens=2000,
+                    messages=[{"role": "user", "content": prompt}],
+                ),
             )
             raw = msg.content[0].text
             match = re.search(r"\[.*\]", raw, re.DOTALL)

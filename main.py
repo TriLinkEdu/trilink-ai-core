@@ -1,10 +1,11 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from config.settings import Settings
 from config.plugin_registry import get_registry, PluginRegistry
 from infrastructure.db.postgres import init_pool
 from infrastructure.db.mongo import init_mongo
 from api.routes import mastery, recommendations, learning_path, content
+from api.auth import require_api_key
 
 
 @asynccontextmanager
@@ -17,7 +18,8 @@ async def lifespan(app: FastAPI):
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="TriLink AI Engine", version="1.0.0", lifespan=lifespan)
+    app = FastAPI(title="TriLink AI Engine", version="1.0.0", lifespan=lifespan,
+                  dependencies=[Depends(require_api_key)])
 
     app.include_router(mastery.router,          prefix="/api/ai")
     app.include_router(recommendations.router,  prefix="/api/ai")
