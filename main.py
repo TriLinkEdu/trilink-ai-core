@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from config.settings import Settings
 from config.plugin_registry import get_registry, PluginRegistry
 from infrastructure.db.postgres import init_pool
+from infrastructure.db.mongo import init_mongo
 from api.routes import mastery, recommendations, learning_path, content
 
 
@@ -10,6 +11,7 @@ from api.routes import mastery, recommendations, learning_path, content
 async def lifespan(app: FastAPI):
     settings = Settings()
     init_pool(settings.POSTGRES_URL)
+    init_mongo(settings.MONGO_URL)
     app.state.registry = get_registry()
     yield
 

@@ -14,8 +14,10 @@ class Settings(BaseSettings):
     MONGO_URL: str = Field(..., description="MongoDB connection string")
 
     # --- External APIs ---
-    GROQ_API_KEY: str = Field(default="", description="Groq API key")
-    OPENAI_API_KEY: str = Field(default="", description="OpenAI API key (fallback)")
+    GROQ_API_KEY: str = Field(default="")
+    OPENAI_API_KEY: str = Field(default="")
+    GEMINI_API_KEY: str = Field(default="")
+    CLAUDE_API_KEY: str = Field(default="")
 
     # --- BKT tuning ---
     BKT_P_INIT: float = 0.1
