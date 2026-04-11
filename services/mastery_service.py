@@ -1,5 +1,6 @@
 from core.interfaces.knowledge_tracer import KnowledgeTracer
 from infrastructure.repositories.student_repo import StudentRepository
+from infrastructure.repositories.mongo_repos import AuditRepository
 
 
 class MasteryService:
@@ -9,6 +10,7 @@ class MasteryService:
     def __init__(self, tracer: KnowledgeTracer, repo: StudentRepository):
         self._tracer = tracer
         self._repo = repo
+        self._audit = AuditRepository()
 
     async def process_answer(
         self, student_id: str, topic_id: str, is_correct: bool
@@ -16,6 +18,14 @@ class MasteryService:
         current = self._repo.get_mastery(student_id, topic_id)
         update = self._tracer.update(current.mastery_level, is_correct)
         self._repo.save_mastery(student_id, topic_id, update.new)
+
+        self._audit.log(
+            actor_id=student_id,
+            action="mastery_updated",
+            entity="student_topic_mastery",
+            entity_id=f"{student_id}:{topic_id}",
+            metadata={"old": update.old, "new": update.new, "is_correct": is_correct},
+        )
 
         return {
             "topic_id": topic_id,

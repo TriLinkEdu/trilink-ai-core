@@ -4,6 +4,7 @@ from core.models.learning_path import LearningPath, LearningPathTopic
 from core.interfaces.path_generator import PathGenerator
 from infrastructure.repositories.student_repo import StudentRepository
 from infrastructure.repositories.topic_repo import TopicRepository
+from infrastructure.repositories.mongo_repos import AuditRepository
 
 
 class LearningPathService(PathGenerator):
@@ -14,6 +15,7 @@ class LearningPathService(PathGenerator):
     def __init__(self, student_repo: StudentRepository, topic_repo: TopicRepository):
         self._students = student_repo
         self._topics   = topic_repo
+        self._audit    = AuditRepository()
 
     async def generate(self, student_id: str, subject_id: str) -> LearningPath:
         # 1. Get all mastery records for this student × subject
@@ -55,6 +57,14 @@ class LearningPathService(PathGenerator):
 
         completed = sum(1 for m in masteries if m.mastery_level >= self.MASTERY_THRESHOLD)
         progress  = completed / len(all_topics) if all_topics else 0.0
+
+        self._audit.log(
+            actor_id=student_id,
+            action="path_generated",
+            entity="ai_learning_path",
+            entity_id=student_id,
+            metadata={"subject_id": subject_id, "topic_count": len(path_topics)},
+        )
 
         return LearningPath(
             student_id      = student_id,
