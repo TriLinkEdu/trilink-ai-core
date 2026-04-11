@@ -10,8 +10,10 @@ CREATE EXTENSION IF NOT EXISTS "vector";     -- pgvector
 -- -----------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS subject (
     subject_id      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    subject_name    VARCHAR(60)  NOT NULL UNIQUE,
-    subject_code    VARCHAR(10)  NOT NULL UNIQUE
+    subject_name    VARCHAR(60)  NOT NULL,
+    subject_code    VARCHAR(10)  NOT NULL UNIQUE,
+    grade_level     SMALLINT     NOT NULL DEFAULT 9 CHECK (grade_level BETWEEN 1 AND 12),
+    UNIQUE (subject_name, grade_level)
 );
 
 -- -----------------------------------------------------------------------
@@ -63,7 +65,7 @@ CREATE TABLE IF NOT EXISTS "user" (
 -- -----------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS student_profile (
     student_id            UUID PRIMARY KEY REFERENCES "user"(user_id) ON DELETE CASCADE,
-    grade_level           SMALLINT NOT NULL CHECK (grade_level BETWEEN 9 AND 12),
+    grade_level           SMALLINT NOT NULL CHECK (grade_level BETWEEN 1 AND 12),
     section               VARCHAR(10) NOT NULL,
     offline_cache_enabled BOOLEAN NOT NULL DEFAULT FALSE
 );

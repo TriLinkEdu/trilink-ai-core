@@ -15,16 +15,15 @@ class ClaudeGenerator(ContentGenerator):
 
     async def generate_lesson(self, topic: Topic) -> str:
         prompt = (
-            f"You are an expert Ethiopian Grade 9 {topic.subject} teacher.\n\n"
+            f"You are an expert Ethiopian Grade {topic.grade_level} {topic.subject} teacher.\n\n"
             f"Write a comprehensive lesson for: **{topic.name}**\n"
             f"Learning objectives: {', '.join(topic.objectives)}\n\n"
             "Structure: Introduction, Key Concepts, Worked Examples, "
-            "Practice Problems, Summary. Output markdown."
+            f"Practice Problems, Summary. Use language suitable for Grade {topic.grade_level}. Output markdown."
         )
         try:
             msg = self._client.messages.create(
-                model=self.MODEL,
-                max_tokens=2500,
+                model=self.MODEL, max_tokens=2500,
                 messages=[{"role": "user", "content": prompt}],
             )
             return msg.content[0].text
@@ -33,7 +32,7 @@ class ClaudeGenerator(ContentGenerator):
 
     async def generate_questions(self, topic: Topic, count: int) -> list[dict]:
         prompt = (
-            f"Generate {count} MCQ questions for Grade 9 {topic.subject}: {topic.name}.\n"
+            f"Generate {count} MCQ questions for Grade {topic.grade_level} {topic.subject}: {topic.name}.\n"
             "Return JSON array only:\n"
             '[{"question":"...","options":["A)...","B)...","C)...","D)..."],'
             '"answer":"A","explanation":"...","difficulty":"easy|medium|hard"}]'

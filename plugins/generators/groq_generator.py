@@ -18,7 +18,7 @@ class GroqGenerator(ContentGenerator):
 
     async def generate_lesson(self, topic: Topic) -> str:
         prompt = (
-            f"You are an expert Ethiopian Grade 9 {topic.subject} teacher.\n\n"
+            f"You are an expert Ethiopian Grade {topic.grade_level} {topic.subject} teacher.\n\n"
             f"Write a comprehensive lesson for: **{topic.name}**\n"
             f"Learning objectives: {', '.join(topic.objectives)}\n\n"
             "Structure:\n"
@@ -27,13 +27,13 @@ class GroqGenerator(ContentGenerator):
             "3. Worked Examples (2-3 solved problems)\n"
             "4. Practice Problems (5 questions with answers)\n"
             "5. Summary\n\n"
-            "Use simple language suitable for 14-year-olds. Output markdown."
+            f"Use simple language suitable for Grade {topic.grade_level} students. Output markdown."
         )
         return await self._call(prompt, max_tokens=2500)
 
     async def generate_questions(self, topic: Topic, count: int) -> list[dict]:
         prompt = (
-            f"Generate {count} multiple-choice questions for Grade 9 "
+            f"Generate {count} multiple-choice questions for Grade {topic.grade_level} "
             f"{topic.subject}: {topic.name}.\n\n"
             "Return a JSON array only, no extra text:\n"
             '[{"question":"...","options":["A)...","B)...","C)...","D)..."],'

@@ -11,7 +11,8 @@ class TopicRepository:
                 cur.execute(
                     """
                     SELECT t.topic_id, t.topic_name, s.subject_name, t.subject_id,
-                           t.difficulty_tier, t.objectives, t.keywords, t.parent_topic_id
+                           t.difficulty_tier, t.objectives, t.keywords, t.parent_topic_id,
+                           s.grade_level
                     FROM topic t
                     JOIN subject s ON s.subject_id = t.subject_id
                     WHERE t.topic_id = %s
@@ -33,18 +34,19 @@ class TopicRepository:
                     """
                     SELECT t.topic_id, t.topic_name, s.subject_name, t.subject_id,
                            t.difficulty_tier, t.objectives, t.keywords, t.parent_topic_id,
+                           s.grade_level,
                            ARRAY_AGG(tp.prereq_id) FILTER (WHERE tp.prereq_id IS NOT NULL)
                     FROM topic t
                     JOIN subject s ON s.subject_id = t.subject_id
                     LEFT JOIN topic_prerequisite tp ON tp.topic_id = t.topic_id
                     WHERE t.topic_id = ANY(%s)
-                    GROUP BY t.topic_id, s.subject_name
+                    GROUP BY t.topic_id, s.subject_name, s.grade_level
                     """,
                     (topic_ids,),
                 )
                 rows = cur.fetchall()
 
-        return [self._row_to_topic(r, prereqs=r[8]) for r in rows]
+        return [self._row_to_topic(r, prereqs=r[9]) for r in rows]
 
     def get_by_subject(self, subject_id: str) -> list[Topic]:
         with connection() as conn:
@@ -52,7 +54,8 @@ class TopicRepository:
                 cur.execute(
                     """
                     SELECT t.topic_id, t.topic_name, s.subject_name, t.subject_id,
-                           t.difficulty_tier, t.objectives, t.keywords, t.parent_topic_id
+                           t.difficulty_tier, t.objectives, t.keywords, t.parent_topic_id,
+                           s.grade_level
                     FROM topic t
                     JOIN subject s ON s.subject_id = t.subject_id
                     WHERE t.subject_id = %s
@@ -83,5 +86,6 @@ class TopicRepository:
             objectives=list(row[5] or []),
             keywords=list(row[6] or []),
             parent_topic_id=str(row[7]) if row[7] else None,
+            grade_level=int(row[8]) if row[8] else 9,
             prerequisites=[str(p) for p in (prereqs or [])],
         )
