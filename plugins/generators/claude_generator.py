@@ -23,7 +23,7 @@ class ClaudeGenerator(ContentGenerator):
             f"Practice Problems, Summary. Use language suitable for Grade {topic.grade_level}. Output markdown."
         )
         try:
-            msg = await asyncio.get_event_loop().run_in_executor(
+            msg = await asyncio.get_running_loop().run_in_executor(
                 None,
                 lambda: self._client.messages.create(
                     model=self.MODEL, max_tokens=2500,
@@ -42,7 +42,7 @@ class ClaudeGenerator(ContentGenerator):
             '"answer":"A","explanation":"...","difficulty":"easy|medium|hard"}]'
         )
         try:
-            msg = await asyncio.get_event_loop().run_in_executor(
+            msg = await asyncio.get_running_loop().run_in_executor(
                 None,
                 lambda: self._client.messages.create(
                     model=self.MODEL, max_tokens=2000,

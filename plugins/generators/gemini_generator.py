@@ -24,7 +24,7 @@ class GeminiGenerator(ContentGenerator):
             f"Practice Problems, Summary. Use language suitable for Grade {topic.grade_level}. Output markdown."
         )
         try:
-            resp = await asyncio.get_event_loop().run_in_executor(
+            resp = await asyncio.get_running_loop().run_in_executor(
                 None, self._model.generate_content, prompt
             )
             return resp.text
@@ -39,7 +39,7 @@ class GeminiGenerator(ContentGenerator):
             '"answer":"A","explanation":"...","difficulty":"easy|medium|hard"}]'
         )
         try:
-            resp = await asyncio.get_event_loop().run_in_executor(
+            resp = await asyncio.get_running_loop().run_in_executor(
                 None, self._model.generate_content, prompt
             )
             match = re.search(r"\[.*\]", resp.text, re.DOTALL)

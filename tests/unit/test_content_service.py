@@ -47,7 +47,9 @@ def topic_repo():
 
 @pytest.fixture
 def svc(generator, resource_repo, topic_repo):
-    return ContentService(generator, resource_repo, topic_repo)
+    question_repo = MagicMock()
+    question_repo.save_batch.return_value = ["q-id-1"]
+    return ContentService(generator, resource_repo, topic_repo, question_repo)
 
 
 class TestContentService:
@@ -86,6 +88,7 @@ class TestContentService:
     async def test_generate_questions_returns_list(self, svc):
         result = await svc.generate_questions(TOPIC_ID, count=1)
         assert isinstance(result["questions"], list)
+        assert "saved" in result
 
     @pytest.mark.asyncio
     async def test_generate_questions_passes_count(self, svc, generator):

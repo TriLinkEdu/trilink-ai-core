@@ -105,6 +105,26 @@ CREATE TABLE IF NOT EXISTS learning_path_topic (
 );
 
 -- -----------------------------------------------------------------------
+-- Question Bank
+-- -----------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS question_bank (
+    question_id     UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    topic_id        UUID NOT NULL REFERENCES topic(topic_id) ON DELETE CASCADE,
+    question_text   TEXT         NOT NULL,
+    options         JSONB        NOT NULL,          -- ["A) ...", "B) ...", ...]
+    correct_answer  VARCHAR(1)   NOT NULL,          -- "A" | "B" | "C" | "D"
+    explanation     TEXT         NOT NULL DEFAULT '',
+    difficulty      VARCHAR(10)  NOT NULL CHECK (difficulty IN ('easy','medium','hard')),
+    source          VARCHAR(20)  NOT NULL DEFAULT 'ai_generated',
+    needs_review    BOOLEAN      NOT NULL DEFAULT TRUE,
+    embedding       vector(384),
+    created_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_question_topic ON question_bank(topic_id);
+CREATE INDEX IF NOT EXISTS idx_question_difficulty ON question_bank(topic_id, difficulty);
+
+-- -----------------------------------------------------------------------
 -- Resources
 -- -----------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS resource (

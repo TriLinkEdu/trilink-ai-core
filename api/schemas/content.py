@@ -23,3 +23,4 @@ class GenerateQuestionsResponse(BaseModel):
     topic_id: str
     topic_name: str
     questions: list[dict]
+    saved: int
