@@ -67,6 +67,10 @@ class GroqGenerator(ContentGenerator):
 
         raise ContentGenerationError("groq", "max retries exceeded")
 
+    async def _call_raw(self, prompt: str) -> str:
+        """Send a raw prompt and return the response text."""
+        return await self._call(prompt, max_tokens=1000, temperature=0.7)
+
     @staticmethod
     def _parse_json(raw: str, topic_id: str) -> list[dict]:
         match = re.search(r"\[.*\]", raw, re.DOTALL)

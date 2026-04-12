@@ -7,27 +7,15 @@ class ContentGenerator(ABC):
 
     @abstractmethod
     async def generate_lesson(self, topic: Topic) -> str:
-        """
-        Generate a full markdown lesson for a topic.
-
-        Args:
-            topic: The curriculum topic to generate content for
-
-        Returns:
-            Markdown-formatted lesson string
-        """
+        """Generate a full markdown lesson for a topic."""
         ...
 
     @abstractmethod
     async def generate_questions(self, topic: Topic, count: int) -> list[dict]:
-        """
-        Generate MCQ questions for a topic.
+        """Generate MCQ questions. Returns list of dicts."""
+        ...
 
-        Args:
-            topic: The curriculum topic
-            count: Number of questions to generate
-
-        Returns:
-            List of dicts: {question, options, answer, explanation, difficulty}
-        """
+    @abstractmethod
+    async def _call_raw(self, prompt: str) -> str:
+        """Send a raw prompt, return response text. Used by ChatService."""
         ...

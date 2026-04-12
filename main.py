@@ -4,7 +4,7 @@ from config.settings import Settings
 from config.plugin_registry import get_registry
 from infrastructure.db.postgres import init_pool
 from infrastructure.db.mongo import init_mongo
-from api.routes import mastery, recommendations, learning_path, content
+from api.routes import mastery, recommendations, learning_path, content, chat
 from api.auth import require_api_key
 
 
@@ -31,6 +31,7 @@ def create_app() -> FastAPI:
     app.include_router(recommendations.router, prefix="/api/ai", dependencies=auth)
     app.include_router(learning_path.router,   prefix="/api/ai", dependencies=auth)
     app.include_router(content.router,         prefix="/api/ai", dependencies=auth)
+    app.include_router(chat.router,            prefix="/api/ai", dependencies=auth)
 
     return app
 

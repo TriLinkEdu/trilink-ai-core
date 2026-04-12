@@ -1,7 +1,9 @@
 import asyncio
 import json
+import os
 import re
-import google.generativeai as genai
+from google import genai
+from google.oauth2 import service_account
 from core.interfaces.content_generator import ContentGenerator
 from core.models.topic import Topic
 from core.exceptions import ContentGenerationError
@@ -9,11 +11,24 @@ from core.exceptions import ContentGenerationError
 
 class GeminiGenerator(ContentGenerator):
 
-    MODEL = "gemini-1.5-flash"
+    MODEL = "gemini-2.5-flash"
 
     def __init__(self, api_key: str):
-        genai.configure(api_key=api_key)
-        self._model = genai.GenerativeModel(self.MODEL)
+        gcp_key = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "gcp-key.json"
+        )
+        if os.path.exists(gcp_key):
+            creds = service_account.Credentials.from_service_account_file(
+                gcp_key, scopes=["https://www.googleapis.com/auth/cloud-platform"]
+            )
+            self._client = genai.Client(
+                vertexai=True,
+                project="gen-lang-client-0611252551",
+                location="us-central1",
+                credentials=creds,
+            )
+        else:
+            self._client = genai.Client(api_key=api_key)
 
     async def generate_lesson(self, topic: Topic) -> str:
         prompt = (
@@ -23,13 +38,7 @@ class GeminiGenerator(ContentGenerator):
             "Structure: Introduction, Key Concepts, Worked Examples, "
             f"Practice Problems, Summary. Use language suitable for Grade {topic.grade_level}. Output markdown."
         )
-        try:
-            resp = await asyncio.get_running_loop().run_in_executor(
-                None, self._model.generate_content, prompt
-            )
-            return resp.text
-        except Exception as e:
-            raise ContentGenerationError(topic.id, str(e)) from e
+        return await self._call_raw(prompt)
 
     async def generate_questions(self, topic: Topic, count: int) -> list[dict]:
         prompt = (
@@ -38,15 +47,23 @@ class GeminiGenerator(ContentGenerator):
             '[{"question":"...","options":["A)...","B)...","C)...","D)..."],'
             '"answer":"A","explanation":"...","difficulty":"easy|medium|hard"}]'
         )
+        raw = await self._call_raw(prompt)
+        match = re.search(r"\[.*\]", raw, re.DOTALL)
+        if not match:
+            raise ContentGenerationError(topic.id, "no JSON array in response")
+        try:
+            return json.loads(match.group())
+        except json.JSONDecodeError as e:
+            raise ContentGenerationError(topic.id, f"invalid JSON: {e}") from e
+
+    async def _call_raw(self, prompt: str) -> str:
         try:
             resp = await asyncio.get_running_loop().run_in_executor(
-                None, self._model.generate_content, prompt
+                None,
+                lambda: self._client.models.generate_content(
+                    model=self.MODEL, contents=prompt
+                ),
             )
-            match = re.search(r"\[.*\]", resp.text, re.DOTALL)
-            if not match:
-                raise ContentGenerationError(topic.id, "no JSON array in response")
-            return json.loads(match.group())
-        except ContentGenerationError:
-            raise
+            return resp.text
         except Exception as e:
-            raise ContentGenerationError(topic.id, str(e)) from e
+            raise ContentGenerationError("chat", str(e)) from e

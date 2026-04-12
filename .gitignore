@@ -33,3 +33,5 @@ dist/
 
 # Nested standalone repo
 trilink-ai-core/
+
+data/

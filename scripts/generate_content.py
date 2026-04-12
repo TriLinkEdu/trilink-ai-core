@@ -21,11 +21,12 @@ from config.settings import Settings
 from infrastructure.db.postgres import init_pool
 from infrastructure.repositories.topic_repo import TopicRepository
 from infrastructure.repositories.resource_repo import ResourceRepository
+from infrastructure.repositories.question_repo import QuestionRepository
 from plugins.generators.groq_generator import GroqGenerator
 from services.content_service import ContentService
 
 
-DELAY_BETWEEN_TOPICS = 2.0   # seconds — stay under 30 req/min
+DELAY_BETWEEN_TOPICS = 4.0   # seconds — stay under 30 req/min (2 calls per topic = 15 topics/min)
 SUBJECTS = ["math", "physics", "chemistry", "biology", "english"]
 
 
@@ -33,25 +34,43 @@ async def run():
     settings = Settings()
     init_pool(settings.POSTGRES_URL)
 
-    generator = GroqGenerator(api_key=settings.GROQ_API_KEY)
+    # Force fresh registry (bypass lru_cache) so .env changes take effect
+    from config.plugin_registry import PluginRegistry
+    registry = PluginRegistry(settings)
+    generator = registry.generator
     svc = ContentService(
         generator    =generator,
         resource_repo=ResourceRepository(),
         topic_repo   =TopicRepository(),
+        question_repo=QuestionRepository(),
     )
 
-    topic_repo = TopicRepository()
+    topic_repo    = TopicRepository()
+    resource_repo = ResourceRepository()
+    question_repo = QuestionRepository()
+
     topics = []
     for subject_id in _get_subject_ids():
         topics.extend(topic_repo.get_by_subject(subject_id))
 
-    total   = len(topics)
+    # Skip topics that already have both a lesson and questions
+    pending = []
+    for t in topics:
+        has_lesson     = len(resource_repo.find_similar([0.0]*384, t.difficulty_tier, limit=1)) == 0
+        has_questions  = question_repo.count_by_topic(t.id) == 0
+        if has_questions:  # re-generate only if no questions yet
+            pending.append(t)
+
+    total   = len(pending)
+    skipped = len(topics) - total
+    print(f"Generating content for {total} topics ({skipped} already done)...\n")
+
     success = 0
     failed  = []
 
     print(f"Generating content for {total} topics...\n")
 
-    for i, topic in enumerate(topics, 1):
+    for i, topic in enumerate(pending, 1):
         try:
             lesson = await svc.generate_lesson(topic.id)
             print(f"[{i}/{total}] ✓ Lesson: {topic.name}")

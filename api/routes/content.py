@@ -44,3 +44,43 @@ async def get_questions(
         "count": len(questions),
         "questions": questions,
     }
+
+
+@router.get("/next-question/{student_id}/{topic_id}")
+async def next_question(student_id: str, topic_id: str, request: Request):
+    """
+    Adaptive question selection using BKT mastery.
+    Returns one question at the appropriate difficulty for this student.
+    NestJS calls this during an adaptive quiz session.
+    """
+    from infrastructure.repositories.student_repo import StudentRepository
+    import random
+
+    student_repo = StudentRepository()
+    mastery = student_repo.get_mastery(student_id, topic_id)
+
+    # Map mastery to difficulty
+    if mastery.mastery_level < 0.4:
+        difficulty = "easy"
+    elif mastery.mastery_level < 0.7:
+        difficulty = "medium"
+    else:
+        difficulty = "hard"
+
+    repo = QuestionRepository()
+    questions = repo.get_by_topic(topic_id, difficulty=difficulty, limit=10)
+
+    # Fallback to any difficulty if none found at target level
+    if not questions:
+        questions = repo.get_by_topic(topic_id, limit=10)
+
+    if not questions:
+        return {"topic_id": topic_id, "question": None, "difficulty": difficulty}
+
+    question = random.choice(questions)
+    return {
+        "topic_id": topic_id,
+        "current_mastery": mastery.mastery_level,
+        "selected_difficulty": difficulty,
+        "question": question,
+    }

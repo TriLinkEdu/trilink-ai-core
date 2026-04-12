@@ -31,7 +31,16 @@ class OpenAIGenerator(ContentGenerator):
         except Exception as e:
             raise ContentGenerationError(topic.id, str(e)) from e
 
-    async def generate_questions(self, topic: Topic, count: int) -> list[dict]:
+    async def _call_raw(self, prompt: str) -> str:
+        try:
+            resp = await self._client.chat.completions.create(
+                model=self.MODEL,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=1000,
+            )
+            return resp.choices[0].message.content
+        except Exception as e:
+            raise ContentGenerationError("chat", str(e)) from e
         prompt = (
             f"Generate {count} MCQ questions for Grade {topic.grade_level} {topic.subject}: {topic.name}.\n"
             "Return JSON array only:\n"

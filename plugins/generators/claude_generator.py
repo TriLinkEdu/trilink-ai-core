@@ -34,7 +34,18 @@ class ClaudeGenerator(ContentGenerator):
         except Exception as e:
             raise ContentGenerationError(topic.id, str(e)) from e
 
-    async def generate_questions(self, topic: Topic, count: int) -> list[dict]:
+    async def _call_raw(self, prompt: str) -> str:
+        try:
+            msg = await asyncio.get_running_loop().run_in_executor(
+                None,
+                lambda: self._client.messages.create(
+                    model=self.MODEL, max_tokens=1000,
+                    messages=[{"role": "user", "content": prompt}],
+                ),
+            )
+            return msg.content[0].text
+        except Exception as e:
+            raise ContentGenerationError("chat", str(e)) from e
         prompt = (
             f"Generate {count} MCQ questions for Grade {topic.grade_level} {topic.subject}: {topic.name}.\n"
             "Return JSON array only:\n"
