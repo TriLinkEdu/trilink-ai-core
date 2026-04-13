@@ -71,8 +71,12 @@ class AnalyticsRepository:
                         MAX(stm.last_assessed) as last_active
                     FROM student_profile sp
                     JOIN "user" u ON u.user_id = sp.student_id
-                    LEFT JOIN student_topic_mastery stm ON stm.student_id = sp.student_id
-                    LEFT JOIN topic t ON t.topic_id = stm.topic_id AND t.subject_id = %s
+                    LEFT JOIN (
+                        SELECT stm.*
+                        FROM student_topic_mastery stm
+                        JOIN topic t ON t.topic_id = stm.topic_id
+                        WHERE t.subject_id = %s
+                    ) stm ON stm.student_id = sp.student_id
                     GROUP BY sp.student_id, u.first_name, u.last_name
                     HAVING AVG(stm.mastery_level) < 0.6 OR AVG(stm.mastery_level) IS NULL
                     ORDER BY avg_mastery ASC NULLS FIRST
