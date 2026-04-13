@@ -51,18 +51,38 @@ def embed_topics(embedder: MiniLMEmbedder, topic_repo: TopicRepository):
 def embed_resources(embedder: MiniLMEmbedder, resource_repo: ResourceRepository):
     with connection() as conn:
         with conn.cursor() as cur:
+            # Re-embed ALL resources (not just NULL) to fix quality issues
             cur.execute(
-                "SELECT resource_id, title, content FROM resource WHERE embedding IS NULL"
+                "SELECT resource_id, title, content FROM resource"
             )
             rows = cur.fetchall()
 
     if not rows:
-        print("Resources: all embeddings already generated.")
+        print("Resources: none found.")
         return
 
     print(f"Embedding {len(rows)} resources...")
     ids   = [str(r[0]) for r in rows]
-    texts = [f"{r[1]} {(r[2] or '')[:500]}" for r in rows]  # title + first 500 chars
+
+    # Skip template boilerplate — use title + first 500 chars of actual content
+    # Strip markdown headers and template lines
+    def extract_body(title: str, content: str) -> str:
+        lines = content.splitlines()
+        body_lines = []
+        for line in lines:
+            stripped = line.strip()
+            # Skip template placeholders and empty lines at start
+            if not stripped:
+                continue
+            if any(p in stripped for p in ["[Your Name", "[Current Date", "**Teacher:**", "**Date:**", "**Subject:**"]):
+                continue
+            body_lines.append(stripped)
+            if len(" ".join(body_lines)) > 500:
+                break
+        body = " ".join(body_lines)[:500]
+        return f"{title} {body}" if body else title
+
+    texts = [extract_body(r[1], r[2] or "") for r in rows]
 
     vectors = embedder.embed_batch(texts)
     for resource_id, vector in zip(ids, vectors):
