@@ -12,6 +12,7 @@ def mock_repo():
     repo = MagicMock(spec=AnalyticsRepository)
     repo.get_student_weekly_summary.return_value = {
         "student_id": "s1",
+        "grade_level": 9,
         "overall_mastery": 0.65,
         "topics_mastered": 4,
         "topics_assessed": 6,
@@ -97,14 +98,16 @@ class TestAnalyticsService:
         await svc.at_risk_students("sub1", limit=10, offset=5)
         mock_repo.get_at_risk_students.assert_called_with("sub1", limit=10, offset=5)
 
-    def test_class_performance_returns_dict(self, svc):
-        result = svc.class_performance("sub1")
+    @pytest.mark.asyncio
+    async def test_class_performance_returns_dict(self, svc):
+        result = await svc.class_performance("sub1")
         assert "weak_topics" in result
         assert "strong_topics" in result
         assert "overall_avg_mastery" in result
 
-    def test_class_performance_passes_pagination(self, svc, mock_repo):
-        svc.class_performance("sub1", limit=20, offset=10)
+    @pytest.mark.asyncio
+    async def test_class_performance_passes_pagination(self, svc, mock_repo):
+        await svc.class_performance("sub1", limit=20, offset=10)
         mock_repo.get_class_performance.assert_called_with("sub1", limit=20, offset=10)
 
 
@@ -146,9 +149,12 @@ class TestAnalyticsRepository:
         mock_cur = MagicMock()
         mock_cur.fetchall.side_effect = [
             [("Physics", 0.75, 5, 4)],  # subjects query
-            [(2,)],                       # active_topics query
         ]
-        mock_cur.fetchone.return_value = (0.75, 4, 5)
+        mock_cur.fetchone.side_effect = [
+            (2,),              # active_topics query
+            (0.75, 4, 5),      # overall progress
+            (9,),              # grade_level
+        ]
         mock_conn.__enter__ = MagicMock(return_value=mock_conn)
         mock_conn.__exit__ = MagicMock(return_value=False)
         mock_conn.cursor.return_value.__enter__ = MagicMock(return_value=mock_cur)

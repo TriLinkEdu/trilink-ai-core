@@ -15,8 +15,9 @@ class AnalyticsService:
         if data["subjects"]:
             best    = max(data["subjects"], key=lambda x: x["avg_mastery"])
             weakest = min(data["subjects"], key=lambda x: x["avg_mastery"])
+            grade   = data.get("grade_level", 9)
             prompt  = (
-                f"Write a short, encouraging weekly progress summary for a Grade 9 student.\n"
+                f"Write a short, encouraging weekly progress summary for a Grade {grade} student.\n"
                 f"Overall mastery: {data['overall_mastery']*100:.0f}%\n"
                 f"Topics mastered: {data['topics_mastered']}/{data['topics_assessed']}\n"
                 f"Active topics this week: {data['active_topics_this_week']}\n"
@@ -50,7 +51,7 @@ class AnalyticsService:
             "recommendations": self._intervention_tips(high_risk),
         }
 
-    def class_performance(self, subject_id: str, limit: int = 50, offset: int = 0) -> dict:
+    async def class_performance(self, subject_id: str, limit: int = 50, offset: int = 0) -> dict:
         return self._repo.get_class_performance(subject_id, limit=limit, offset=offset)
 
     @staticmethod

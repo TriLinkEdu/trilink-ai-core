@@ -37,4 +37,4 @@ async def class_performance(
     offset: int = Query(default=0, ge=0),
 ):
     """Teacher: per-topic class performance — which topics need re-teaching."""
-    return _svc(request).class_performance(subject_id, limit=limit, offset=offset)
+    return await _svc(request).class_performance(subject_id, limit=limit, offset=offset)

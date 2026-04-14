@@ -49,8 +49,16 @@ class AnalyticsRepository:
                 mastered_total = row[1] or 0
                 assessed_total = row[2] or 0
 
+                # Student grade level
+                cur.execute("""
+                    SELECT grade_level FROM student_profile WHERE student_id = %s
+                """, (student_id,))
+                grade_row = cur.fetchone()
+                grade_level = grade_row[0] if grade_row else 9
+
         return {
             "student_id": student_id,
+            "grade_level": grade_level,
             "overall_mastery": round(overall, 3),
             "topics_mastered": mastered_total,
             "topics_assessed": assessed_total,

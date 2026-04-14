@@ -11,14 +11,14 @@ class AuditRepository:
 
     _collection = "audit_logs"
 
-    def log(self, actor_id: str, action: str, entity: str, entity_id: str, metadata: dict = {}) -> None:
+    def log(self, actor_id: str, action: str, entity: str, entity_id: str, metadata: dict | None = None) -> None:
         try:
             get_db()[self._collection].insert_one({
                 "actor_id": actor_id,
                 "action": action,
                 "entity": entity,
                 "entity_id": entity_id,
-                "metadata": metadata,
+                "metadata": metadata or {},
                 "timestamp": datetime.now(timezone.utc),
             })
         except Exception:
