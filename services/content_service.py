@@ -3,6 +3,7 @@ from core.models.resource import Resource
 from infrastructure.repositories.resource_repo import ResourceRepository
 from infrastructure.repositories.topic_repo import TopicRepository
 from infrastructure.repositories.question_repo import QuestionRepository
+from infrastructure.repositories.mongo_repos import AuditRepository
 
 
 class ContentService:
@@ -18,6 +19,7 @@ class ContentService:
         self._resources = resource_repo
         self._topics    = topic_repo
         self._questions = question_repo or QuestionRepository()
+        self._audit     = AuditRepository()
 
     async def generate_lesson(self, topic_id: str) -> dict:
         topic   = self._topics.get_by_id(topic_id)
@@ -30,6 +32,8 @@ class ContentService:
             content=content, source="ai_generated",
         )
         new_id = self._resources.save(resource)
+        self._audit.log("system", "lesson_generated", "resource", new_id,
+                        {"topic_id": topic_id, "topic_name": topic.name})
 
         return {
             "resource_id" : new_id,
@@ -48,6 +52,8 @@ class ContentService:
         saved_ids = self._questions.save_batch(topic_id, questions)
         for q, qid in zip(questions, saved_ids):
             q["question_id"] = qid
+        self._audit.log("system", "questions_generated", "question_bank", topic_id,
+                        {"count": len(saved_ids), "topic_name": topic.name})
 
         return {
             "topic_id"  : topic_id,

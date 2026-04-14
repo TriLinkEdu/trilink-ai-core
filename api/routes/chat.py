@@ -13,7 +13,7 @@ def _svc(request: Request) -> ChatService:
 @router.post("", response_model=ChatResponse)
 async def chat(body: ChatRequest, request: Request):
     try:
-        return await _svc(request).chat(body.student_id, body.message)
+        return await _svc(request).chat(body.student_id, body.message, body.grade_level)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 

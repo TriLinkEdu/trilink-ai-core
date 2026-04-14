@@ -36,8 +36,8 @@ class AnalyticsService:
 
         return data
 
-    async def at_risk_students(self, subject_id: str) -> dict:
-        students = self._repo.get_at_risk_students(subject_id)
+    async def at_risk_students(self, subject_id: str, limit: int = 50, offset: int = 0) -> dict:
+        students = self._repo.get_at_risk_students(subject_id, limit=limit, offset=offset)
         high_risk   = [s for s in students if s["risk_level"] == "HIGH"]
         medium_risk = [s for s in students if s["risk_level"] == "MEDIUM"]
 
@@ -50,8 +50,8 @@ class AnalyticsService:
             "recommendations": self._intervention_tips(high_risk),
         }
 
-    def class_performance(self, subject_id: str) -> dict:
-        return self._repo.get_class_performance(subject_id)
+    def class_performance(self, subject_id: str, limit: int = 50, offset: int = 0) -> dict:
+        return self._repo.get_class_performance(subject_id, limit=limit, offset=offset)
 
     @staticmethod
     def _intervention_tips(high_risk: list) -> list[str]:

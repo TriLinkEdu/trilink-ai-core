@@ -15,6 +15,8 @@ def svc():
     svc._logs = MagicMock()
     svc._logs.get_history.return_value = []
     svc._logs.save_message.return_value = None
+    svc._audit = MagicMock()
+    svc._audit.log.return_value = None
     return svc
 
 

@@ -58,7 +58,7 @@ class AnalyticsRepository:
             "subjects": subjects,
         }
 
-    def get_at_risk_students(self, subject_id: str) -> list[dict]:
+    def get_at_risk_students(self, subject_id: str, limit: int = 50, offset: int = 0) -> list[dict]:
         with connection() as conn:
             with conn.cursor() as cur:
                 cur.execute("""
@@ -80,7 +80,8 @@ class AnalyticsRepository:
                     GROUP BY sp.student_id, u.first_name, u.last_name
                     HAVING AVG(stm.mastery_level) < 0.6 OR AVG(stm.mastery_level) IS NULL
                     ORDER BY avg_mastery ASC NULLS FIRST
-                """, (subject_id,))
+                    LIMIT %s OFFSET %s
+                """, (subject_id, limit, offset))
 
                 students = []
                 for r in cur.fetchall():
@@ -97,10 +98,9 @@ class AnalyticsRepository:
                     })
                 return students
 
-    def get_class_performance(self, subject_id: str) -> dict:
+    def get_class_performance(self, subject_id: str, limit: int = 50, offset: int = 0) -> dict:
         with connection() as conn:
             with conn.cursor() as cur:
-                # Per-topic class average
                 cur.execute("""
                     SELECT t.topic_name, t.topic_code,
                            AVG(stm.mastery_level) as avg_mastery,
@@ -110,7 +110,8 @@ class AnalyticsRepository:
                     WHERE t.subject_id = %s
                     GROUP BY t.topic_id, t.topic_name, t.topic_code
                     ORDER BY avg_mastery ASC NULLS FIRST
-                """, (subject_id,))
+                    LIMIT %s OFFSET %s
+                """, (subject_id, limit, offset))
 
                 topics = []
                 for r in cur.fetchall():
