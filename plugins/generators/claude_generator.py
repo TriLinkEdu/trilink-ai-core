@@ -22,36 +22,25 @@ class ClaudeGenerator(ContentGenerator):
             "Structure: Introduction, Key Concepts, Worked Examples, "
             f"Practice Problems, Summary. Use language suitable for Grade {topic.grade_level}. Output markdown."
         )
-        try:
-            msg = await asyncio.get_running_loop().run_in_executor(
-                None,
-                lambda: self._client.messages.create(
-                    model=self.MODEL, max_tokens=2500,
-                    messages=[{"role": "user", "content": prompt}],
-                ),
-            )
-            return msg.content[0].text
-        except Exception as e:
-            raise ContentGenerationError(topic.id, str(e)) from e
+        return await self._call_raw(prompt)
 
-    async def _call_raw(self, prompt: str) -> str:
-        try:
-            msg = await asyncio.get_running_loop().run_in_executor(
-                None,
-                lambda: self._client.messages.create(
-                    model=self.MODEL, max_tokens=1000,
-                    messages=[{"role": "user", "content": prompt}],
-                ),
-            )
-            return msg.content[0].text
-        except Exception as e:
-            raise ContentGenerationError("chat", str(e)) from e
+    async def generate_questions(self, topic: Topic, count: int) -> list[dict]:
         prompt = (
             f"Generate {count} MCQ questions for Grade {topic.grade_level} {topic.subject}: {topic.name}.\n"
             "Return JSON array only:\n"
             '[{"question":"...","options":["A)...","B)...","C)...","D)..."],'
             '"answer":"A","explanation":"...","difficulty":"easy|medium|hard"}]'
         )
+        raw = await self._call_raw(prompt)
+        match = re.search(r"\[.*\]", raw, re.DOTALL)
+        if not match:
+            raise ContentGenerationError(topic.id, "no JSON array in response")
+        try:
+            return json.loads(match.group())
+        except json.JSONDecodeError as e:
+            raise ContentGenerationError(topic.id, f"invalid JSON: {e}") from e
+
+    async def _call_raw(self, prompt: str) -> str:
         try:
             msg = await asyncio.get_running_loop().run_in_executor(
                 None,
@@ -60,12 +49,6 @@ class ClaudeGenerator(ContentGenerator):
                     messages=[{"role": "user", "content": prompt}],
                 ),
             )
-            raw = msg.content[0].text
-            match = re.search(r"\[.*\]", raw, re.DOTALL)
-            if not match:
-                raise ContentGenerationError(topic.id, "no JSON array in response")
-            return json.loads(match.group())
-        except ContentGenerationError:
-            raise
+            return msg.content[0].text
         except Exception as e:
-            raise ContentGenerationError(topic.id, str(e)) from e
+            raise ContentGenerationError("chat", str(e)) from e
