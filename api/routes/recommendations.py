@@ -9,11 +9,13 @@ router = APIRouter(prefix="/recommendations", tags=["recommendations"])
 
 def _svc(request: Request) -> RecommendationService:
     r = request.app.state.registry
+    from config.settings import Settings
     return RecommendationService(
         recommender=r.recommender,
         generator=r.generator,
         resource_repo=ResourceRepository(),
         topic_repo=TopicRepository(),
+        youtube_api_key=Settings().YOUTUBE_API_KEY,
     )
 
 

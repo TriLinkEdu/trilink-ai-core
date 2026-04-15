@@ -131,11 +131,11 @@ CREATE TABLE IF NOT EXISTS resource (
     resource_id  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     topic_id     UUID NOT NULL REFERENCES topic(topic_id) ON DELETE CASCADE,
     title        VARCHAR(200) NOT NULL,
-    type         VARCHAR(20)  NOT NULL CHECK (type IN ('lesson','youtube_video','pdf','flashcard')),
+    type         VARCHAR(20)  NOT NULL CHECK (type IN ('lesson','youtube_video','pdf','flashcard','book')),
     content      TEXT         NOT NULL DEFAULT '',   -- markdown for lessons
     url          TEXT         NOT NULL DEFAULT '',   -- for videos/links
     difficulty   VARCHAR(10)  NOT NULL CHECK (difficulty IN ('easy','medium','hard')),
-    source       VARCHAR(20)  NOT NULL DEFAULT 'manual' CHECK (source IN ('manual','ai_generated')),
+    source       VARCHAR(20)  NOT NULL DEFAULT 'manual' CHECK (source IN ('manual','ai_generated','youtube','open_library')),
     needs_review BOOLEAN      NOT NULL DEFAULT FALSE,
     avg_rating   DECIMAL(3,2) NOT NULL DEFAULT 0,
     embedding    vector(384),

@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = Field(default="")
     GEMINI_API_KEY: str = Field(default="")
     CLAUDE_API_KEY: str = Field(default="")
+    YOUTUBE_API_KEY: str = Field(default="", description="YouTube Data API v3 key for video seeding")
 
     # --- BKT tuning ---
     BKT_P_INIT: float = 0.1
