@@ -57,6 +57,31 @@ class ResourceRepository:
                     (embedding, resource_id),
                 )
 
+    def find_all_with_content(self, limit: int = 5000) -> list[Resource]:
+        """
+        Fetch all resources that have textual content for BM25 index building.
+
+        The BM25 index is built in-memory per request. The 5000-resource cap
+        prevents memory issues; in practice most corpora are much smaller.
+        For large corpora, consider pre-building and caching the BM25 index.
+        """
+        with connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT resource_id, title, type, topic_id, difficulty,
+                           content, url, avg_rating, source, 0.0 AS score
+                    FROM resource
+                    WHERE content IS NOT NULL AND content != ''
+                    ORDER BY resource_id
+                    LIMIT %s
+                    """,
+                    (limit,),
+                )
+                rows = cur.fetchall()
+
+        return [self._row_to_resource(r) for r in rows]
+
     @staticmethod
     def _row_to_resource(row) -> Resource:
         return Resource(

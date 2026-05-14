@@ -1,7 +1,11 @@
-import json
-import re
+"""
+OpenAIGenerator — uses OpenAI's native JSON mode + response_format to guarantee
+structured, schema-validated question output. No regex. No fallback hacks.
+"""
+
 from openai import AsyncOpenAI
 from core.interfaces.content_generator import ContentGenerator
+from core.models.question_schema import MCQQuestionList
 from core.models.topic import Topic
 from core.exceptions import ContentGenerationError
 
@@ -24,20 +28,43 @@ class OpenAIGenerator(ContentGenerator):
         return await self._call_raw(prompt)
 
     async def generate_questions(self, topic: Topic, count: int) -> list[dict]:
-        prompt = (
-            f"Generate {count} MCQ questions for Grade {topic.grade_level} {topic.subject}: {topic.name}.\n"
-            "Return JSON array only:\n"
-            '[{"question":"...","options":["A)...","B)...","C)...","D)..."],'
-            '"answer":"A","explanation":"...","difficulty":"easy|medium|hard"}]'
-        )
-        raw = await self._call_raw(prompt)
-        match = re.search(r"\[.*\]", raw, re.DOTALL)
-        if not match:
-            raise ContentGenerationError(topic.id, "no JSON array in response")
+        """
+        Generate MCQ questions using OpenAI's Structured Outputs (parse method).
+
+        openai>=1.40 supports response_format with Pydantic models directly,
+        guaranteeing schema-validated JSON at the API boundary.
+        """
         try:
-            return json.loads(match.group())
-        except json.JSONDecodeError as e:
-            raise ContentGenerationError(topic.id, f"invalid JSON: {e}") from e
+            resp = await self._client.beta.chat.completions.parse(
+                model=self.MODEL,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            f"You are an expert Ethiopian Grade {topic.grade_level} "
+                            f"{topic.subject} question writer. "
+                            "Generate questions strictly aligned with the Ethiopian national curriculum."
+                        ),
+                    },
+                    {
+                        "role": "user",
+                        "content": (
+                            f"Generate exactly {count} multiple-choice questions for: {topic.name}.\n"
+                            "Each question must have exactly 4 options labelled A, B, C, D.\n"
+                            "Vary difficulty across easy, medium, and hard.\n"
+                            "Include a clear explanation for the correct answer."
+                        ),
+                    },
+                ],
+                response_format=MCQQuestionList,
+                max_tokens=2500,
+                temperature=0.7,
+            )
+            question_list: MCQQuestionList = resp.choices[0].message.parsed
+            return [q.to_dict() for q in question_list.questions]
+
+        except Exception as e:
+            raise ContentGenerationError(topic.id, f"Structured Output failed: {e}") from e
 
     async def _call_raw(self, prompt: str) -> str:
         try:

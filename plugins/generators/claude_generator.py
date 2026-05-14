@@ -1,10 +1,60 @@
+"""
+ClaudeGenerator — uses Anthropic's tool_use to force structured JSON output.
+
+Claude does not have a native response_schema API, but tool_use with
+a strict JSON schema is the recommended pattern for guaranteed structured output.
+We define a single tool "submit_questions" and force the model to call it with
+the validated question list.
+"""
+
 import asyncio
 import json
-import re
 import anthropic
+from pydantic import ValidationError
+
 from core.interfaces.content_generator import ContentGenerator
+from core.models.question_schema import MCQQuestionList
 from core.models.topic import Topic
 from core.exceptions import ContentGenerationError
+
+
+# Tool definition passed to the Claude API for structured question generation.
+# Using Anthropic's JSON Schema format (same as OpenAPI spec subset).
+_QUESTIONS_TOOL = {
+    "name": "submit_questions",
+    "description": "Submit a list of multiple-choice questions for the student's quiz.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "questions": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "question":    {"type": "string"},
+                        "options": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "label": {"type": "string", "enum": ["A", "B", "C", "D"]},
+                                    "text":  {"type": "string"},
+                                },
+                                "required": ["label", "text"],
+                            },
+                            "minItems": 4, "maxItems": 4,
+                        },
+                        "answer":      {"type": "string", "enum": ["A", "B", "C", "D"]},
+                        "explanation": {"type": "string"},
+                        "difficulty":  {"type": "string", "enum": ["easy", "medium", "hard"]},
+                    },
+                    "required": ["question", "options", "answer", "explanation", "difficulty"],
+                },
+            }
+        },
+        "required": ["questions"],
+    },
+}
 
 
 class ClaudeGenerator(ContentGenerator):
@@ -25,20 +75,51 @@ class ClaudeGenerator(ContentGenerator):
         return await self._call_raw(prompt)
 
     async def generate_questions(self, topic: Topic, count: int) -> list[dict]:
-        prompt = (
-            f"Generate {count} MCQ questions for Grade {topic.grade_level} {topic.subject}: {topic.name}.\n"
-            "Return JSON array only:\n"
-            '[{"question":"...","options":["A)...","B)...","C)...","D)..."],'
-            '"answer":"A","explanation":"...","difficulty":"easy|medium|hard"}]'
-        )
-        raw = await self._call_raw(prompt)
-        match = re.search(r"\[.*\]", raw, re.DOTALL)
-        if not match:
-            raise ContentGenerationError(topic.id, "no JSON array in response")
+        """
+        Generate MCQ questions using Claude's tool_use for guaranteed structured output.
+
+        tool_choice={"type": "tool", "name": "submit_questions"} forces the model
+        to ALWAYS call the tool — it cannot return free-form text.
+        """
         try:
-            return json.loads(match.group())
-        except json.JSONDecodeError as e:
-            raise ContentGenerationError(topic.id, f"invalid JSON: {e}") from e
+            resp = await asyncio.get_running_loop().run_in_executor(
+                None,
+                lambda: self._client.messages.create(
+                    model=self.MODEL,
+                    max_tokens=3000,
+                    tools=[_QUESTIONS_TOOL],
+                    tool_choice={"type": "tool", "name": "submit_questions"},
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": (
+                                f"Generate exactly {count} multiple-choice questions for "
+                                f"Grade {topic.grade_level} {topic.subject}: {topic.name}.\n"
+                                "Vary difficulty across easy, medium, and hard.\n"
+                                "Include clear explanations. Align with Ethiopian national curriculum."
+                            ),
+                        }
+                    ],
+                ),
+            )
+
+            # Extract the tool call input block
+            tool_block = next(
+                (b for b in resp.content if b.type == "tool_use" and b.name == "submit_questions"),
+                None,
+            )
+            if not tool_block:
+                raise ContentGenerationError(topic.id, "Claude did not call submit_questions tool")
+
+            question_list = MCQQuestionList.model_validate(tool_block.input)
+            return [q.to_dict() for q in question_list.questions]
+
+        except ValidationError as e:
+            raise ContentGenerationError(topic.id, f"Schema validation failed: {e}") from e
+        except ContentGenerationError:
+            raise
+        except Exception as e:
+            raise ContentGenerationError(topic.id, str(e)) from e
 
     async def _call_raw(self, prompt: str) -> str:
         try:

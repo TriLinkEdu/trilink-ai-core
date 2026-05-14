@@ -104,23 +104,100 @@ class TestContentService:
             await svc.generate_lesson(TOPIC_ID)
 
 
-class TestGroqGeneratorParsing:
-    """Test JSON parsing logic without hitting the API."""
+class TestStructuredOutputParsing:
+    """
+    Test the Pydantic-based question validation that replaced regex parsing.
 
-    def test_parse_valid_json(self):
-        from plugins.generators.groq_generator import GroqGenerator
-        raw = '[{"question":"Q?","options":["A","B"],"answer":"A","explanation":"E","difficulty":"easy"}]'
-        result = GroqGenerator._parse_json(raw, "t1")
-        assert len(result) == 1
-        assert result[0]["answer"] == "A"
+    All generators now use MCQQuestionList.model_validate() for guaranteed
+    schema enforcement. These tests verify that schema is correctly applied.
+    """
 
-    def test_parse_json_embedded_in_text(self):
-        from plugins.generators.groq_generator import GroqGenerator
-        raw = 'Here are the questions:\n[{"question":"Q?","options":[],"answer":"A","explanation":"E","difficulty":"easy"}]\nDone.'
-        result = GroqGenerator._parse_json(raw, "t1")
-        assert len(result) == 1
+    def test_valid_question_list_parses(self):
+        from core.models.question_schema import MCQQuestionList
+        data = {
+            "questions": [
+                {
+                    "question": "What is velocity?",
+                    "options": [
+                        {"label": "A", "text": "speed"},
+                        {"label": "B", "text": "displacement/time"},
+                        {"label": "C", "text": "force"},
+                        {"label": "D", "text": "mass"},
+                    ],
+                    "answer": "B",
+                    "explanation": "Velocity = displacement / time",
+                    "difficulty": "easy",
+                }
+            ]
+        }
+        result = MCQQuestionList.model_validate(data)
+        assert len(result.questions) == 1
+        assert result.questions[0].answer == "B"
 
-    def test_parse_invalid_json_raises(self):
-        from plugins.generators.groq_generator import GroqGenerator
-        with pytest.raises(ContentGenerationError):
-            GroqGenerator._parse_json("no json here", "t1")
+    def test_to_dict_produces_legacy_format(self):
+        from core.models.question_schema import MCQQuestionList
+        data = {
+            "questions": [
+                {
+                    "question": "What is osmosis?",
+                    "options": [
+                        {"label": "A", "text": "movement of water"},
+                        {"label": "B", "text": "movement of ions"},
+                        {"label": "C", "text": "cell division"},
+                        {"label": "D", "text": "photosynthesis"},
+                    ],
+                    "answer": "A",
+                    "explanation": "Osmosis is the diffusion of water.",
+                    "difficulty": "medium",
+                }
+            ]
+        }
+        q = MCQQuestionList.model_validate(data).questions[0]
+        d = q.to_dict()
+        assert d["answer"] == "A"
+        assert len(d["options"]) == 4
+        assert d["options"][0].startswith("A)")
+
+    def test_invalid_answer_label_raises(self):
+        from core.models.question_schema import MCQQuestionList
+        from pydantic import ValidationError
+        data = {
+            "questions": [
+                {
+                    "question": "Q?",
+                    "options": [
+                        {"label": "A", "text": "o1"},
+                        {"label": "B", "text": "o2"},
+                        {"label": "C", "text": "o3"},
+                        {"label": "D", "text": "o4"},
+                    ],
+                    "answer": "E",
+                    "explanation": "exp",
+                    "difficulty": "easy",
+                }
+            ]
+        }
+        with pytest.raises(ValidationError):
+            MCQQuestionList.model_validate(data)
+
+    def test_invalid_difficulty_raises(self):
+        from core.models.question_schema import MCQQuestionList
+        from pydantic import ValidationError
+        data = {
+            "questions": [
+                {
+                    "question": "Q?",
+                    "options": [
+                        {"label": "A", "text": "o1"},
+                        {"label": "B", "text": "o2"},
+                        {"label": "C", "text": "o3"},
+                        {"label": "D", "text": "o4"},
+                    ],
+                    "answer": "A",
+                    "explanation": "exp",
+                    "difficulty": "very_hard",
+                }
+            ]
+        }
+        with pytest.raises(ValidationError):
+            MCQQuestionList.model_validate(data)

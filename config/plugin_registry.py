@@ -31,9 +31,9 @@ def _build_generator(settings: Settings) -> ContentGenerator:
         case "groq":
             from plugins.generators.groq_generator import GroqGenerator
             return GroqGenerator(api_key=settings.GROQ_API_KEY)
-        case "gemini":
-            from plugins.generators.gemini_generator import GeminiGenerator
-            return GeminiGenerator(api_key=settings.GEMINI_API_KEY)
+        # case "gemini":
+        #     from plugins.generators.gemini_generator import GeminiGenerator
+        #     return GeminiGenerator(api_key=settings.GEMINI_API_KEY)
         case "claude":
             from plugins.generators.claude_generator import ClaudeGenerator
             return ClaudeGenerator(api_key=settings.CLAUDE_API_KEY)

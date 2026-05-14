@@ -1,0 +1,504 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "https://trilink.local/schemas/ai-engine.schema.json",
+	"title": "TriLink AI Engine Unified Schema",
+	"type": "object",
+	"required": [
+		"postgres",
+		"mongo",
+		"api",
+		"relationships"
+	],
+	"properties": {
+		"postgres": {
+			"type": "object",
+			"required": ["extensions", "tables"],
+			"properties": {
+				"extensions": {
+					"type": "array",
+					"items": {
+						"type": "string",
+						"enum": ["pgcrypto", "vector"]
+					}
+				},
+				"tables": {
+					"type": "object",
+					"required": [
+						"subject",
+						"topic",
+						"topic_prerequisite",
+						"user",
+						"student_profile",
+						"student_topic_mastery",
+						"ai_learning_path",
+						"learning_path_topic",
+						"question_bank",
+						"resource"
+					],
+					"properties": {
+						"subject": {
+							"$ref": "#/$defs/tableSubject"
+						},
+						"topic": {
+							"$ref": "#/$defs/tableTopic"
+						},
+						"topic_prerequisite": {
+							"$ref": "#/$defs/tableTopicPrerequisite"
+						},
+						"user": {
+							"$ref": "#/$defs/tableUser"
+						},
+						"student_profile": {
+							"$ref": "#/$defs/tableStudentProfile"
+						},
+						"student_topic_mastery": {
+							"$ref": "#/$defs/tableStudentTopicMastery"
+						},
+						"ai_learning_path": {
+							"$ref": "#/$defs/tableAiLearningPath"
+						},
+						"learning_path_topic": {
+							"$ref": "#/$defs/tableLearningPathTopic"
+						},
+						"question_bank": {
+							"$ref": "#/$defs/tableQuestionBank"
+						},
+						"resource": {
+							"$ref": "#/$defs/tableResource"
+						}
+					},
+					"additionalProperties": false
+				}
+			},
+			"additionalProperties": false
+		},
+		"mongo": {
+			"type": "object",
+			"required": ["database", "collections"],
+			"properties": {
+				"database": {
+					"type": "string",
+					"const": "trilink"
+				},
+				"collections": {
+					"type": "object",
+					"required": ["audit_logs", "ai_chat_logs"],
+					"properties": {
+						"audit_logs": {
+							"$ref": "#/$defs/collectionAuditLogs"
+						},
+						"ai_chat_logs": {
+							"$ref": "#/$defs/collectionAiChatLogs"
+						}
+					},
+					"additionalProperties": false
+				}
+			},
+			"additionalProperties": false
+		},
+		"api": {
+			"type": "object",
+			"required": ["chat", "content", "learning_path", "mastery", "recommendation"],
+			"properties": {
+				"chat": {
+					"type": "object",
+					"required": ["ChatRequest", "ChatResponse"],
+					"properties": {
+						"ChatRequest": {
+							"$ref": "#/$defs/ChatRequest"
+						},
+						"ChatResponse": {
+							"$ref": "#/$defs/ChatResponse"
+						}
+					},
+					"additionalProperties": false
+				},
+				"content": {
+					"type": "object",
+					"required": [
+						"GenerateLessonRequest",
+						"GenerateLessonResponse",
+						"GenerateQuestionsRequest",
+						"GenerateQuestionsResponse"
+					],
+					"properties": {
+						"GenerateLessonRequest": {
+							"$ref": "#/$defs/GenerateLessonRequest"
+						},
+						"GenerateLessonResponse": {
+							"$ref": "#/$defs/GenerateLessonResponse"
+						},
+						"GenerateQuestionsRequest": {
+							"$ref": "#/$defs/GenerateQuestionsRequest"
+						},
+						"GenerateQuestionsResponse": {
+							"$ref": "#/$defs/GenerateQuestionsResponse"
+						}
+					},
+					"additionalProperties": false
+				},
+				"learning_path": {
+					"type": "object",
+					"required": ["LearningPathRequest", "LearningPathTopicOut", "LearningPathResponse"],
+					"properties": {
+						"LearningPathRequest": {
+							"$ref": "#/$defs/LearningPathRequest"
+						},
+						"LearningPathTopicOut": {
+							"$ref": "#/$defs/LearningPathTopicOut"
+						},
+						"LearningPathResponse": {
+							"$ref": "#/$defs/LearningPathResponse"
+						}
+					},
+					"additionalProperties": false
+				},
+				"mastery": {
+					"type": "object",
+					"required": [
+						"MasteryUpdateRequest",
+						"MasteryUpdateResponse",
+						"MasteryGetResponse",
+						"WeakTopicsResponse"
+					],
+					"properties": {
+						"MasteryUpdateRequest": {
+							"$ref": "#/$defs/MasteryUpdateRequest"
+						},
+						"MasteryUpdateResponse": {
+							"$ref": "#/$defs/MasteryUpdateResponse"
+						},
+						"MasteryGetResponse": {
+							"$ref": "#/$defs/MasteryGetResponse"
+						},
+						"WeakTopicsResponse": {
+							"$ref": "#/$defs/WeakTopicsResponse"
+						}
+					},
+					"additionalProperties": false
+				},
+				"recommendation": {
+					"type": "object",
+					"required": ["RecommendRequest", "RecommendResponse"],
+					"properties": {
+						"RecommendRequest": {
+							"$ref": "#/$defs/RecommendRequest"
+						},
+						"RecommendResponse": {
+							"$ref": "#/$defs/RecommendResponse"
+						}
+					},
+					"additionalProperties": false
+				}
+			},
+			"additionalProperties": false
+		},
+		"relationships": {
+			"type": "array",
+			"items": {
+				"type": "string",
+				"enum": [
+					"subject 1..* topic",
+					"topic 0..1 parent_topic -> topic",
+					"topic *..* topic (prerequisites)",
+					"user 1..1 student_profile",
+					"student_profile *..* topic via student_topic_mastery",
+					"student_profile 1..1 ai_learning_path",
+					"ai_learning_path *..* topic via learning_path_topic",
+					"topic 1..* question_bank",
+					"topic 1..* resource"
+				]
+			}
+		}
+	},
+	"additionalProperties": false,
+	"$defs": {
+		"uuid": {
+			"type": "string",
+			"pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"
+		},
+		"tableMeta": {
+			"type": "object",
+			"required": ["primary_key", "columns"],
+			"properties": {
+				"primary_key": {
+					"oneOf": [
+						{ "type": "string" },
+						{ "type": "array", "items": { "type": "string" } }
+					]
+				},
+				"columns": {
+					"type": "object"
+				},
+				"foreign_keys": {
+					"type": "array",
+					"items": { "type": "string" }
+				},
+				"unique": {
+					"type": "array",
+					"items": {
+						"oneOf": [
+							{ "type": "string" },
+							{ "type": "array", "items": { "type": "string" } }
+						]
+					}
+				},
+				"checks": {
+					"type": "array",
+					"items": { "type": "string" }
+				},
+				"indexes": {
+					"type": "array",
+					"items": { "type": "string" }
+				}
+			},
+			"additionalProperties": false
+		},
+		"tableSubject": {
+			"allOf": [
+				{ "$ref": "#/$defs/tableMeta" },
+				{
+					"properties": {
+						"primary_key": { "const": "subject_id" }
+					}
+				}
+			]
+		},
+		"tableTopic": {
+			"$ref": "#/$defs/tableMeta"
+		},
+		"tableTopicPrerequisite": {
+			"$ref": "#/$defs/tableMeta"
+		},
+		"tableUser": {
+			"$ref": "#/$defs/tableMeta"
+		},
+		"tableStudentProfile": {
+			"$ref": "#/$defs/tableMeta"
+		},
+		"tableStudentTopicMastery": {
+			"$ref": "#/$defs/tableMeta"
+		},
+		"tableAiLearningPath": {
+			"$ref": "#/$defs/tableMeta"
+		},
+		"tableLearningPathTopic": {
+			"$ref": "#/$defs/tableMeta"
+		},
+		"tableQuestionBank": {
+			"$ref": "#/$defs/tableMeta"
+		},
+		"tableResource": {
+			"$ref": "#/$defs/tableMeta"
+		},
+		"collectionAuditLogs": {
+			"type": "object",
+			"required": ["actor_id", "action", "entity", "entity_id", "metadata", "timestamp"],
+			"properties": {
+				"actor_id": { "type": "string" },
+				"action": { "type": "string" },
+				"entity": { "type": "string" },
+				"entity_id": { "type": "string" },
+				"metadata": { "type": "object" },
+				"timestamp": { "type": "string", "format": "date-time" }
+			},
+			"additionalProperties": true
+		},
+		"collectionAiChatLogs": {
+			"type": "object",
+			"required": ["student_id", "role", "content", "timestamp"],
+			"properties": {
+				"student_id": { "type": "string" },
+				"role": { "type": "string", "enum": ["user", "assistant"] },
+				"content": { "type": "string" },
+				"timestamp": { "type": "string", "format": "date-time" }
+			},
+			"additionalProperties": true
+		},
+		"ChatRequest": {
+			"type": "object",
+			"required": ["student_id", "message"],
+			"properties": {
+				"student_id": { "type": "string" },
+				"message": { "type": "string" },
+				"grade_level": { "type": "integer", "default": 9 }
+			},
+			"additionalProperties": false
+		},
+		"ChatResponse": {
+			"type": "object",
+			"required": ["student_id", "message", "answer", "sources"],
+			"properties": {
+				"student_id": { "type": "string" },
+				"message": { "type": "string" },
+				"answer": { "type": "string" },
+				"sources": {
+					"type": "array",
+					"items": { "type": "object" }
+				}
+			},
+			"additionalProperties": false
+		},
+		"GenerateLessonRequest": {
+			"type": "object",
+			"required": ["topic_id"],
+			"properties": {
+				"topic_id": { "type": "string" }
+			},
+			"additionalProperties": false
+		},
+		"GenerateLessonResponse": {
+			"type": "object",
+			"required": ["resource_id", "title", "topic_id", "content", "needs_review", "source"],
+			"properties": {
+				"resource_id": { "type": "string" },
+				"title": { "type": "string" },
+				"topic_id": { "type": "string" },
+				"content": { "type": "string" },
+				"needs_review": { "type": "boolean" },
+				"source": { "type": "string" }
+			},
+			"additionalProperties": false
+		},
+		"GenerateQuestionsRequest": {
+			"type": "object",
+			"required": ["topic_id"],
+			"properties": {
+				"topic_id": { "type": "string" },
+				"count": { "type": "integer", "default": 5 }
+			},
+			"additionalProperties": false
+		},
+		"GenerateQuestionsResponse": {
+			"type": "object",
+			"required": ["topic_id", "topic_name", "questions", "saved"],
+			"properties": {
+				"topic_id": { "type": "string" },
+				"topic_name": { "type": "string" },
+				"questions": {
+					"type": "array",
+					"items": { "type": "object" }
+				},
+				"saved": { "type": "integer" }
+			},
+			"additionalProperties": false
+		},
+		"LearningPathRequest": {
+			"type": "object",
+			"required": ["student_id", "subject_id"],
+			"properties": {
+				"student_id": { "type": "string" },
+				"subject_id": { "type": "string" }
+			},
+			"additionalProperties": false
+		},
+		"LearningPathTopicOut": {
+			"type": "object",
+			"required": [
+				"topic_id",
+				"topic_name",
+				"current_mastery",
+				"target_mastery",
+				"sequence_order",
+				"is_completed",
+				"explanation"
+			],
+			"properties": {
+				"topic_id": { "type": "string" },
+				"topic_name": { "type": "string" },
+				"current_mastery": { "type": "number" },
+				"target_mastery": { "type": "number" },
+				"sequence_order": { "type": "integer" },
+				"is_completed": { "type": "boolean" },
+				"explanation": { "type": "string" }
+			},
+			"additionalProperties": false
+		},
+		"LearningPathResponse": {
+			"type": "object",
+			"required": ["student_id", "subject_id", "overall_progress", "topics"],
+			"properties": {
+				"student_id": { "type": "string" },
+				"subject_id": { "type": "string" },
+				"overall_progress": { "type": "number" },
+				"topics": {
+					"type": "array",
+					"items": { "$ref": "#/$defs/LearningPathTopicOut" }
+				}
+			},
+			"additionalProperties": false
+		},
+		"MasteryUpdateRequest": {
+			"type": "object",
+			"required": ["student_id", "topic_id", "is_correct"],
+			"properties": {
+				"student_id": { "type": "string" },
+				"topic_id": { "type": "string" },
+				"is_correct": { "type": "boolean" }
+			},
+			"additionalProperties": false
+		},
+		"MasteryUpdateResponse": {
+			"type": "object",
+			"required": ["topic_id", "old_mastery", "new_mastery", "assessment_count", "mastered"],
+			"properties": {
+				"topic_id": { "type": "string" },
+				"old_mastery": { "type": "number" },
+				"new_mastery": { "type": "number" },
+				"assessment_count": { "type": "integer" },
+				"mastered": { "type": "boolean" }
+			},
+			"additionalProperties": false
+		},
+		"MasteryGetResponse": {
+			"type": "object",
+			"required": ["topic_id", "mastery_level", "assessment_count", "mastered"],
+			"properties": {
+				"topic_id": { "type": "string" },
+				"mastery_level": { "type": "number" },
+				"assessment_count": { "type": "integer" },
+				"mastered": { "type": "boolean" }
+			},
+			"additionalProperties": false
+		},
+		"WeakTopicsResponse": {
+			"type": "object",
+			"required": ["student_id", "subject_id", "weak_topics"],
+			"properties": {
+				"student_id": { "type": "string" },
+				"subject_id": { "type": "string" },
+				"weak_topics": {
+					"type": "array",
+					"items": { "type": "object" }
+				}
+			},
+			"additionalProperties": false
+		},
+		"RecommendRequest": {
+			"type": "object",
+			"required": ["student_id", "weak_topic_ids"],
+			"properties": {
+				"student_id": { "type": "string" },
+				"weak_topic_ids": {
+					"type": "array",
+					"items": { "type": "string" }
+				},
+				"difficulty": { "type": "string", "default": "medium" },
+				"limit": { "type": "integer", "default": 5 }
+			},
+			"additionalProperties": false
+		},
+		"RecommendResponse": {
+			"type": "object",
+			"required": ["student_id", "resources"],
+			"properties": {
+				"student_id": { "type": "string" },
+				"resources": {
+					"type": "array",
+					"items": { "type": "object" }
+				}
+			},
+			"additionalProperties": false
+		}
+	}
+}

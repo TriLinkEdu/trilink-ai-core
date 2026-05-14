@@ -1,17 +1,28 @@
+"""
+GroqGenerator — uses Groq's JSON mode + Pydantic validation for structured outputs.
+
+Groq does not yet have a first-class `response_schema` API (as of 2025-05), but
+supports `response_format={"type": "json_object"}` which constrains the model to
+return only valid JSON. We then parse + validate the result with Pydantic, giving
+us the same guarantees as native Structured Outputs without regex.
+"""
+
 import asyncio
 import json
-import re
 from groq import AsyncGroq, RateLimitError
+from pydantic import ValidationError
+
 from core.interfaces.content_generator import ContentGenerator
+from core.models.question_schema import MCQQuestionList
 from core.models.topic import Topic
 from core.exceptions import ContentGenerationError
 
 
 class GroqGenerator(ContentGenerator):
 
-    MODEL      = "llama-3.3-70b-versatile"
-    MAX_RETRY  = 3
-    BACKOFF    = 2  # seconds, doubles each retry
+    MODEL     = "llama-3.3-70b-versatile"
+    MAX_RETRY = 3
+    BACKOFF   = 2  # seconds, doubles each retry
 
     def __init__(self, api_key: str):
         self._client = AsyncGroq(api_key=api_key)
@@ -32,23 +43,62 @@ class GroqGenerator(ContentGenerator):
         return await self._call(prompt, max_tokens=2500)
 
     async def generate_questions(self, topic: Topic, count: int) -> list[dict]:
-        prompt = (
-            f"Generate {count} multiple-choice questions for Grade {topic.grade_level} "
-            f"{topic.subject}: {topic.name}.\n\n"
-            "Return a JSON array only, no extra text:\n"
-            '[{"question":"...","options":["A)...","B)...","C)...","D)..."],'
-            '"answer":"A","explanation":"...","difficulty":"easy|medium|hard"}]'
+        """
+        Generate MCQ questions using Groq JSON mode + Pydantic validation.
+
+        response_format={"type": "json_object"} forces the LLM to return only
+        valid JSON. We then validate against MCQQuestionList for schema correctness.
+        """
+        system_prompt = (
+            f"You are an expert Ethiopian Grade {topic.grade_level} {topic.subject} question writer. "
+            "Respond ONLY with a valid JSON object matching this exact schema:\n"
+            '{"questions": [{"question": "...", "options": [{"label": "A", "text": "..."}, '
+            '{"label": "B", "text": "..."}, {"label": "C", "text": "..."}, {"label": "D", "text": "..."}], '
+            '"answer": "A", "explanation": "...", "difficulty": "easy|medium|hard"}]}'
         )
-        raw = await self._call(prompt, max_tokens=2000, temperature=0.5)
-        return self._parse_json(raw, topic.id)
+        user_prompt = (
+            f"Generate exactly {count} multiple-choice questions for: {topic.name}.\n"
+            "Vary difficulty across easy, medium, and hard.\n"
+            "Include a clear explanation for the correct answer.\n"
+            "Ensure questions are appropriate for the Ethiopian national curriculum."
+        )
 
-    # ------------------------------------------------------------------
-    # Internal helpers
-    # ------------------------------------------------------------------
+        try:
+            raw_json = await self._call_json_mode(system_prompt, user_prompt, max_tokens=2500)
+            data = json.loads(raw_json)
+            question_list = MCQQuestionList.model_validate(data)
+            return [q.to_dict() for q in question_list.questions]
+        except ValidationError as e:
+            raise ContentGenerationError(topic.id, f"Schema validation failed: {e}") from e
+        except json.JSONDecodeError as e:
+            raise ContentGenerationError(topic.id, f"JSON mode returned invalid JSON: {e}") from e
 
-    async def _call(
-        self, prompt: str, max_tokens: int, temperature: float = 0.7
+    async def _call_json_mode(
+        self, system_prompt: str, user_prompt: str, max_tokens: int, temperature: float = 0.7
     ) -> str:
+        """Call Groq with response_format=json_object enforced."""
+        for attempt in range(self.MAX_RETRY):
+            try:
+                resp = await self._client.chat.completions.create(
+                    model=self.MODEL,
+                    messages=[
+                        {"role": "system",  "content": system_prompt},
+                        {"role": "user",    "content": user_prompt},
+                    ],
+                    response_format={"type": "json_object"},
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                )
+                return resp.choices[0].message.content
+            except RateLimitError:
+                if attempt == self.MAX_RETRY - 1:
+                    raise ContentGenerationError("groq", "rate limit exceeded")
+                await asyncio.sleep(self.BACKOFF ** attempt)
+            except Exception as e:
+                raise ContentGenerationError("groq", str(e)) from e
+        raise ContentGenerationError("groq", "max retries exceeded")
+
+    async def _call(self, prompt: str, max_tokens: int, temperature: float = 0.7) -> str:
         for attempt in range(self.MAX_RETRY):
             try:
                 resp = await self._client.chat.completions.create(
@@ -64,19 +114,7 @@ class GroqGenerator(ContentGenerator):
                 await asyncio.sleep(self.BACKOFF ** attempt)
             except Exception as e:
                 raise ContentGenerationError("groq", str(e)) from e
-
         raise ContentGenerationError("groq", "max retries exceeded")
 
     async def _call_raw(self, prompt: str) -> str:
-        """Send a raw prompt and return the response text."""
         return await self._call(prompt, max_tokens=1000, temperature=0.7)
-
-    @staticmethod
-    def _parse_json(raw: str, topic_id: str) -> list[dict]:
-        match = re.search(r"\[.*\]", raw, re.DOTALL)
-        if not match:
-            raise ContentGenerationError(topic_id, "no JSON array in response")
-        try:
-            return json.loads(match.group())
-        except json.JSONDecodeError as e:
-            raise ContentGenerationError(topic_id, f"invalid JSON: {e}") from e

@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Request, Query
+from fastapi import APIRouter, HTTPException, Request, Query
 from api.schemas.content import (
     GenerateLessonRequest, GenerateLessonResponse,
     GenerateQuestionsRequest, GenerateQuestionsResponse,
+    GenerateQuizRequest, GenerateQuizResponse,
 )
 from services.content_service import ContentService
 from infrastructure.repositories.resource_repo import ResourceRepository
@@ -28,6 +29,39 @@ async def generate_lesson(body: GenerateLessonRequest, request: Request):
 @router.post("/generate-questions", response_model=GenerateQuestionsResponse)
 async def generate_questions(body: GenerateQuestionsRequest, request: Request):
     return await _svc(request).generate_questions(body.topic_id, body.count)
+
+
+@router.post("/generate-quiz", response_model=GenerateQuizResponse)
+async def generate_quiz(body: GenerateQuizRequest, request: Request):
+    """
+    Real-time gamification quiz endpoint.
+
+    Called by NestJS when a student opens a quiz card.  Generates grade-scoped,
+    curriculum-contextualised MCQ questions fresh from the LLM.  No questions are
+    persisted — the answer key is embedded in the response and held by NestJS for
+    scoring.  A hard 30-second timeout prevents mobile requests from hanging.
+    """
+    import asyncio
+    try:
+        result = await asyncio.wait_for(
+            _svc(request).generate_quiz(
+                subject     = body.subject,
+                grade_level = body.grade_level,
+                topics      = body.topics,
+                count       = body.count,
+                difficulty  = body.difficulty,
+            ),
+            timeout=30.0,
+        )
+        if result["generated"] == 0:
+            raise HTTPException(status_code=503, detail="LLM returned no valid questions")
+        return result
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=503, detail="Quiz generation timed out")
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"Quiz generation failed: {exc}") from exc
 
 
 @router.get("/questions/{topic_id}")

@@ -1,0 +1,72 @@
+INFO:     Started server process [71753]
+INFO:     Waiting for application startup.
+ERROR:    Traceback (most recent call last):
+  File "/home/sadam/.local/lib/python3.13/site-packages/starlette/routing.py", line 638, in lifespan
+    async with self.lifespan_context(app) as maybe_state:
+               ~~~~~~~~~~~~~~~~~~~~~^^^^^
+  File "/usr/lib/python3.13/contextlib.py", line 214, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/sadam/.local/lib/python3.13/site-packages/fastapi/routing.py", line 216, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+               ~~~~~~~~~~~~~~~~^^^^^
+  File "/usr/lib/python3.13/contextlib.py", line 214, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/sadam/.local/lib/python3.13/site-packages/fastapi/routing.py", line 216, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+               ~~~~~~~~~~~~~~~~^^^^^
+  File "/usr/lib/python3.13/contextlib.py", line 214, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/sadam/.local/lib/python3.13/site-packages/fastapi/routing.py", line 216, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+               ~~~~~~~~~~~~~~~~^^^^^
+  File "/usr/lib/python3.13/contextlib.py", line 214, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/sadam/.local/lib/python3.13/site-packages/fastapi/routing.py", line 216, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+               ~~~~~~~~~~~~~~~~^^^^^
+  File "/usr/lib/python3.13/contextlib.py", line 214, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/sadam/.local/lib/python3.13/site-packages/fastapi/routing.py", line 216, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+               ~~~~~~~~~~~~~~~~^^^^^
+  File "/usr/lib/python3.13/contextlib.py", line 214, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/sadam/.local/lib/python3.13/site-packages/fastapi/routing.py", line 216, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+               ~~~~~~~~~~~~~~~~^^^^^
+  File "/usr/lib/python3.13/contextlib.py", line 214, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/sadam/Development/trilink/ai-engine/main.py", line 14, in lifespan
+    init_pool(settings.POSTGRES_URL)
+    ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/sadam/Development/trilink/ai-engine/infrastructure/db/postgres.py", line 15, in init_pool
+    _pool = pool.ThreadedConnectionPool(
+        minconn,
+    ...<5 lines>...
+        keepalives_count=5,
+    )
+  File "/home/sadam/.local/lib/python3.13/site-packages/psycopg2/pool.py", line 161, in __init__
+    AbstractConnectionPool.__init__(
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        self, minconn, maxconn, *args, **kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/sadam/.local/lib/python3.13/site-packages/psycopg2/pool.py", line 59, in __init__
+    self._connect()
+    ~~~~~~~~~~~~~^^
+  File "/home/sadam/.local/lib/python3.13/site-packages/psycopg2/pool.py", line 63, in _connect
+    conn = psycopg2.connect(*self._args, **self._kwargs)
+  File "/home/sadam/.local/lib/python3.13/site-packages/psycopg2/__init__.py", line 122, in connect
+    conn = _connect(dsn, connection_factory=connection_factory, **kwasync)
+psycopg2.OperationalError: connection to server at "ep-fancy-lake-am8kp17m-pooler.c-5.us-east-1.aws.neon.tech" (100.49.65.130), port 5432 failed: server closed the connection unexpectedly
+	This probably means the server terminated abnormally
+	before or while processing the request.
+
+
+ERROR:    Application startup failed. Exiting.
