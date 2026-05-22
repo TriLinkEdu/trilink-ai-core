@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     BKT_P_GUESS: float = 0.25
 
     INTERNAL_API_KEY: str = Field(default="", description="Set to require X-API-Key header on all endpoints")
+    AI_SERVICE_URL: str = Field(default="http://localhost:8000", description="AI Engine service URL")
     MASTERY_THRESHOLD: float = 0.70
     RECOMMENDATION_LIMIT: int = 5
 

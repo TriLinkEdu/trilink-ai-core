@@ -6,8 +6,7 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 
 
 def _svc(request: Request) -> ChatService:
-    r = request.app.state.registry
-    return ChatService(generator=r.generator, embedder=r.embedder)
+    return request.app.state.registry.chat_service
 
 
 @router.post("", response_model=ChatResponse)

@@ -47,10 +47,12 @@ class _Conn:
         for attempt in range(max_retries):
             try:
                 self._conn = get_pool().getconn()
-                # Test connection is alive
-                self._conn.isolation_level
+                # Test connection is alive with a fast ping
+                with self._conn.cursor() as cur:
+                    cur.execute("SELECT 1")
+                self._conn.rollback()
                 return self._conn
-            except (psycopg2.OperationalError, psycopg2.InterfaceError) as e:
+            except psycopg2.Error as e:
                 if self._conn:
                     try:
                         get_pool().putconn(self._conn, close=True)
@@ -69,7 +71,7 @@ class _Conn:
                     self._conn.rollback()
                 else:
                     self._conn.commit()
-            except (psycopg2.OperationalError, psycopg2.InterfaceError):
+            except psycopg2.Error:
                 # Connection already closed, just discard it
                 try:
                     get_pool().putconn(self._conn, close=True)

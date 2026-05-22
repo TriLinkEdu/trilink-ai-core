@@ -32,6 +32,7 @@ This implementation:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from functools import cached_property
 from typing import NamedTuple
@@ -74,6 +75,18 @@ class ChatService:
         self._resources = ResourceRepository()
         self._logs      = ChatLogRepository()
         self._audit     = AuditRepository()
+        self._bm25: BM25Okapi | None = None
+        self._bm25_corpus: list[Resource] = []
+
+    def _get_bm25(self) -> tuple[BM25Okapi | None, list[Resource]]:
+        """Return cached BM25 index, building it on first call."""
+        if self._bm25 is None:
+            all_resources = self._resources.find_all_with_content()
+            if all_resources:
+                tokenized = [r.content.lower().split() if r.content else [] for r in all_resources]
+                self._bm25 = BM25Okapi(tokenized)
+                self._bm25_corpus = all_resources
+        return self._bm25, self._bm25_corpus
 
     @cached_property
     def _cross_encoder(self) -> CrossEncoder:
@@ -87,8 +100,11 @@ class ChatService:
         # ── Step 1: Truncate message (never reject; always truncate) ──────────
         message = message[:MAX_MESSAGE_LEN]
 
-        # ── Step 2: LLM-as-a-Judge safety check ──────────────────────────────
-        safety = await self._safety_check(message, grade_level)
+        # ── Steps 2+3: Safety check and query rewrite run in parallel ─────────
+        (safety, search_query) = await asyncio.gather(
+            self._safety_check(message, grade_level),
+            self._rewrite_query(message, grade_level),
+        )
         if not safety["safe"]:
             logger.warning("Blocked message from student %s: %s", student_id, safety["reason"])
             return {
@@ -101,9 +117,6 @@ class ChatService:
                 "sources"    : [],
                 "blocked"    : True,
             }
-
-        # ── Step 3: LLM Query Rewriting ───────────────────────────────────────
-        search_query = await self._rewrite_query(message, grade_level)
         logger.debug("Rewritten query: '%s' → '%s'", message[:60], search_query[:60])
 
         # ── Step 4: Hybrid Retrieval (Dense + BM25) ───────────────────────────
@@ -237,15 +250,12 @@ class ChatService:
             query_vector, difficulty="medium", limit=VECTOR_TOP_K
         )
 
-        # Sparse BM25 retrieval (over all resources in memory)
-        all_resources: list[Resource] = self._resources.find_all_with_content()
-        if all_resources:
-            corpus         = [r.content or "" for r in all_resources]
-            tokenized      = [doc.lower().split() for doc in corpus]
-            bm25           = BM25Okapi(tokenized)
+        # Sparse BM25 retrieval — uses cached index built at first call
+        bm25, bm25_corpus = self._get_bm25()
+        if bm25 is not None and bm25_corpus:
             scores         = bm25.get_scores(query.lower().split())
             top_indices    = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:BM25_TOP_K]
-            sparse_results = [all_resources[i] for i in top_indices]
+            sparse_results = [bm25_corpus[i] for i in top_indices]
         else:
             sparse_results = []
 

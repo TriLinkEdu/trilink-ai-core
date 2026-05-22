@@ -15,6 +15,7 @@ from core.interfaces.content_generator import ContentGenerator
 from core.interfaces.embedder import Embedder
 from core.interfaces.recommender import Recommender
 from core.exceptions import PluginNotConfiguredError
+from services.chat_service import ChatService
 
 
 def _build_tracer(settings: Settings) -> KnowledgeTracer:
@@ -70,6 +71,7 @@ class PluginRegistry:
         self.embedder: Embedder = _build_embedder(settings)
         self.generator: ContentGenerator = _build_generator(settings)
         self.recommender: Recommender = _build_recommender(settings, self.embedder)
+        self.chat_service: ChatService = ChatService(self.generator, self.embedder)
 
 
 @lru_cache(maxsize=1)

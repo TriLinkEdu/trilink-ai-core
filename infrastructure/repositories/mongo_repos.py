@@ -13,7 +13,8 @@ class AuditRepository:
 
     def log(self, actor_id: str, action: str, entity: str, entity_id: str, metadata: dict | None = None) -> None:
         try:
-            get_db()[self._collection].insert_one({
+            db = get_db()
+            db[self._collection].insert_one({
                 "actor_id": actor_id,
                 "action": action,
                 "entity": entity,
@@ -32,18 +33,24 @@ class ChatLogRepository:
 
     def save_message(self, student_id: str, role: str, content: str) -> None:
         """role: 'user' | 'assistant'"""
-        get_db()[self._collection].insert_one({
-            "student_id": student_id,
-            "role": role,
-            "content": content,
-            "timestamp": datetime.now(timezone.utc),
-        })
+        try:
+            get_db()[self._collection].insert_one({
+                "student_id": student_id,
+                "role": role,
+                "content": content,
+                "timestamp": datetime.now(timezone.utc),
+            })
+        except Exception:
+            pass  # never crash the chat response on a log write failure
 
     def get_history(self, student_id: str, limit: int = 20) -> list[dict]:
-        cursor = (
-            get_db()[self._collection]
-            .find({"student_id": student_id}, {"_id": 0})
-            .sort("timestamp", -1)
-            .limit(limit)
-        )
-        return list(reversed(list(cursor)))
+        try:
+            cursor = (
+                get_db()[self._collection]
+                .find({"student_id": student_id}, {"_id": 0})
+                .sort("timestamp", -1)
+                .limit(limit)
+            )
+            return list(reversed(list(cursor)))
+        except Exception:
+            return []
