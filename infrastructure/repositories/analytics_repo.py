@@ -99,12 +99,68 @@ class AnalyticsRepository:
                         "student_id": str(r[0]),
                         "name": r[1],
                         "avg_mastery": round(avg, 3),
-                        "topics_assessed": r[3] or 0,
-                        "critical_topics": r[4] or 0,
+                        "topics_assessed": r[3],
+                        "critical_topics": r[4],
                         "last_active": r[5].isoformat() if r[5] else None,
                         "risk_level": risk,
                     })
                 return students
+
+    def get_student_engagement(self, student_id: str) -> dict:
+        with connection() as conn:
+            with conn.cursor() as cur:
+                # Total study sessions (days with activity)
+                cur.execute("""
+                    SELECT COUNT(DISTINCT last_assessed::date)
+                    FROM student_topic_mastery
+                    WHERE student_id = %s
+                """, (student_id,))
+                total_sessions = cur.fetchone()[0]
+
+                # Total assessments taken
+                cur.execute("""
+                    SELECT SUM(assessment_count)
+                    FROM student_topic_mastery
+                    WHERE student_id = %s
+                """, (student_id,))
+                total_assessments = cur.fetchone()[0] or 0
+
+                # Average mastery across all topics
+                cur.execute("""
+                    SELECT AVG(mastery_level)
+                    FROM student_topic_mastery
+                    WHERE student_id = %s
+                """, (student_id,))
+                avg_mastery = cur.fetchone()[0] or 0.0
+
+                # Study time estimate (rough proxy: 5 mins per assessment)
+                study_minutes = total_assessments * 5
+
+        return {
+            "student_id": student_id,
+            "total_sessions": total_sessions,
+            "total_assessments": total_assessments,
+            "average_mastery": round(float(avg_mastery), 3),
+            "total_study_minutes": study_minutes,
+        }
+
+    def get_student_learning_curve(self, student_id: str, topic_id: str) -> list[dict]:
+        with connection() as conn:
+            with conn.cursor() as cur:
+                # This would ideally come from a history table, but we'll simulate
+                # based on current mastery and last_assessed for now
+                cur.execute("""
+                    SELECT mastery_level, last_assessed
+                    FROM student_topic_mastery
+                    WHERE student_id = %s AND topic_id = %s
+                """, (student_id, topic_id))
+                row = cur.fetchone()
+                if not row:
+                    return []
+
+                return [
+                    {"date": (row[1].date()).isoformat(), "mastery": round(float(row[0]), 3)}
+                ]
 
     def get_class_performance(self, subject_id: str, limit: int = 50, offset: int = 0) -> dict:
         with connection() as conn:

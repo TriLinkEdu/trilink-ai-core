@@ -37,6 +37,12 @@ class AnalyticsService:
 
         return data
 
+    async def engagement(self, student_id: str) -> dict:
+        return self._repo.get_student_engagement(student_id)
+
+    async def learning_curve(self, student_id: str, topic_id: str) -> list[dict]:
+        return self._repo.get_student_learning_curve(student_id, topic_id)
+
     async def at_risk_students(self, subject_id: str, limit: int = 50, offset: int = 0) -> dict:
         students = self._repo.get_at_risk_students(subject_id, limit=limit, offset=offset)
         high_risk   = [s for s in students if s["risk_level"] == "HIGH"]

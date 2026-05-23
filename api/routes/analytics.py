@@ -16,6 +16,18 @@ async def weekly_summary(student_id: str, request: Request):
     return await _svc(request).weekly_summary(student_id)
 
 
+@router.get("/engagement/{student_id}")
+async def engagement(student_id: str, request: Request):
+    """Engagement metrics: total sessions, assessments, study time."""
+    return await _svc(request).engagement(student_id)
+
+
+@router.get("/learning-curve/{student_id}/{topic_id}")
+async def learning_curve(student_id: str, topic_id: str, request: Request):
+    """Historical mastery progress for a student on a specific topic."""
+    return await _svc(request).learning_curve(student_id, topic_id)
+
+
 # ── Teacher endpoints ─────────────────────────────────────────────────────────
 
 @router.get("/subject/{subject_id}/at-risk")

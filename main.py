@@ -4,6 +4,7 @@ from config.settings import Settings
 from config.plugin_registry import get_registry
 from infrastructure.db.postgres import init_pool
 from infrastructure.db.mongo import init_mongo
+from fastapi.middleware.cors import CORSMiddleware
 from api.routes import mastery, recommendations, learning_path, content, chat, analytics
 from api.auth import require_api_key
 
@@ -19,6 +20,15 @@ async def lifespan(app: FastAPI):
 
 def create_app() -> FastAPI:
     app = FastAPI(title="TriLink AI Engine", version="1.0.0", lifespan=lifespan)
+
+    # Enable CORS for browser integration
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],  # Allow all origins for development; tighten for production
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
     # Health check — no auth (load balancer / Docker healthcheck)
     @app.get("/health")
