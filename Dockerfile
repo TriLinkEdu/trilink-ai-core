@@ -2,11 +2,17 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y libpq-dev gcc && rm -rf /var/lib/apt/lists/*
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    libpq-dev \
+    gcc \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
-# Install torch CPU-only first (saves ~3.5 GB vs CUDA build), then the rest
-RUN pip install --no-cache-dir torch==2.4.0+cpu \
+# Pre-install heavy dependencies to leverage caching
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir torch==2.4.0+cpu \
       --index-url https://download.pytorch.org/whl/cpu && \
     pip install --no-cache-dir -r requirements.txt
 
