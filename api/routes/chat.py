@@ -1,11 +1,14 @@
 from fastapi import APIRouter, Request, Query, HTTPException
 from api.schemas.chat import ChatRequest, ChatResponse
+from config.plugin_registry import get_registry
 from services.chat_service import ChatService
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
 
 def _svc(request: Request) -> ChatService:
+    if request.app.state.registry is None:
+        request.app.state.registry = get_registry()
     return request.app.state.registry.chat_service
 
 

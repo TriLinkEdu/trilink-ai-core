@@ -78,6 +78,21 @@ class ChatService:
         self._bm25: BM25Okapi | None = None
         self._bm25_corpus: list[Resource] = []
 
+    def _warmup(self) -> None:
+        """Eagerly load all heavy models and build the BM25 index at startup.
+        This prevents the first real chat request from timing out due to
+        cold-start model loading (MiniLM ~2s, CrossEncoder ~1s, BM25 build)."""
+        try:
+            logger.info("[warmup] Loading MiniLM embedder…")
+            self._embedder.embed("warmup")
+            logger.info("[warmup] Loading Cross-Encoder…")
+            _ = self._cross_encoder
+            logger.info("[warmup] Building BM25 index…")
+            self._get_bm25()
+            logger.info("[warmup] All models ready.")
+        except Exception as exc:
+            logger.warning("[warmup] Warm-up failed (%s) — models will load on first request", exc)
+
     def _get_bm25(self) -> tuple[BM25Okapi | None, list[Resource]]:
         """Return cached BM25 index, building it on first call."""
         if self._bm25 is None:

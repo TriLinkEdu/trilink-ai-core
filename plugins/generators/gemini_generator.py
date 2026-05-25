@@ -7,7 +7,7 @@ No regex parsing. No fallback hacks.
 import asyncio
 import os
 
-import google.generativeai as genai
+from google import genai
 from google.oauth2 import service_account
 
 from core.exceptions import ContentGenerationError
@@ -18,24 +18,10 @@ from core.models.topic import Topic
 
 class GeminiGenerator(ContentGenerator):
 
-    MODEL = "gemini-2.0-flash"
+    MODEL = "gemini-1.5-flash"
 
     def __init__(self, api_key: str):
-        gcp_key = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "gcp-key.json"
-        )
-        if os.path.exists(gcp_key):
-            creds = service_account.Credentials.from_service_account_file(
-                gcp_key, scopes=["https://www.googleapis.com/auth/cloud-platform"]
-            )
-            self._client = genai.Client(
-                vertexai=True,
-                project="gen-lang-client-0611252551",
-                location="us-central1",
-                credentials=creds,
-            )
-        else:
-            self._client = genai.Client(api_key=api_key)
+        self._client = genai.Client(api_key=api_key)
 
     async def generate_lesson(self, topic: Topic) -> str:
         prompt = (

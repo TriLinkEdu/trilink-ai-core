@@ -7,6 +7,8 @@ pydantic-settings==2.3.0
 # sentence-transformers provides both:
 #   - all-MiniLM-L6-v2  (bi-encoder, used by MiniLMEmbedder for dense retrieval)
 #   - cross-encoder/ms-marco-MiniLM-L-6-v2  (cross-encoder, used by ChatService re-ranker)
+# Pin CPU-only torch to avoid downloading 400MB+ CUDA binaries in Docker
+torch==2.4.0+cpu
 sentence-transformers==3.0.1
 
 # Sparse (BM25) retrieval — used by Advanced RAG hybrid search

@@ -24,11 +24,10 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"⚠ MongoDB connection failed: {e}")
     
-    try:
-        app.state.registry = get_registry()
-        print("✓ Plugin registry initialized")
-    except Exception as e:
-        print(f"⚠ Plugin registry failed: {e}")
+    # Keep startup lightweight. Heavy ML models are loaded lazily by route
+    # handlers; otherwise Docker health checks time out during cold starts.
+    app.state.registry = None
+    print("✓ Plugin registry deferred")
     
     yield
 
