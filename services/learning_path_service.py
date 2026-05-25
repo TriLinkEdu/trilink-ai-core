@@ -2,6 +2,7 @@ from collections import deque
 from core.models.topic import Topic
 from core.models.learning_path import LearningPath, LearningPathTopic
 from core.interfaces.path_generator import PathGenerator
+from core.interfaces.content_generator import ContentGenerator
 from infrastructure.repositories.student_repo import StudentRepository
 from infrastructure.repositories.topic_repo import TopicRepository
 from infrastructure.repositories.mongo_repos import AuditRepository
@@ -12,18 +13,28 @@ class LearningPathService(PathGenerator):
     MASTERY_THRESHOLD = 0.70
     TARGET_MASTERY    = 0.80
 
-    def __init__(self, student_repo: StudentRepository, topic_repo: TopicRepository):
-        self._students = student_repo
-        self._topics   = topic_repo
-        self._audit    = AuditRepository()
+    def __init__(
+        self,
+        student_repo: StudentRepository,
+        topic_repo: TopicRepository,
+        generator: ContentGenerator | None = None,
+    ):
+        self._students  = student_repo
+        self._topics    = topic_repo
+        self._audit     = AuditRepository()
+        self._generator = generator
 
-    async def generate(self, student_id: str, subject_id: str) -> LearningPath:
+    async def generate(self, student_id: str, subject_id: str, subject_name: str = "") -> LearningPath:
         # 1. Get all mastery records for this student × subject
         masteries = self._students.get_all_masteries(student_id, subject_id)
         mastery_map = {m.topic_id: m.mastery_level for m in masteries}
 
         # 2. All topics in subject — we need the full graph for prerequisite resolution
         all_topics = self._topics.get_by_subject(subject_id)
+
+        # No topics seeded — synthesize a starter path from the subject_id as context
+        if not all_topics:
+            return await self._synthesize_starter_path(student_id, subject_id, subject_name)
 
         # 3. Identify weak topics (below threshold)
         weak_ids = {
@@ -117,6 +128,51 @@ class LearningPathService(PathGenerator):
         seen = {t.id for t in result}
         result += [t for t in topics if t.id not in seen]
         return result
+
+    async def _synthesize_starter_path(self, student_id: str, subject_id: str, subject_name: str = "") -> LearningPath:
+        """No topics in DB — ask the generator for a starter outline and map it to path topics."""
+        label = subject_name.strip() or subject_id
+        topic_names: list[str] = []
+        if self._generator:
+            try:
+                raw = await self._generator._call_raw(
+                    f"List exactly 5 key topics a Grade 9 student should study for: {label}. "
+                    "Reply with ONLY a numbered list, one topic per line, no extra text."
+                )
+                topic_names = [
+                    line.lstrip("0123456789. )").strip()
+                    for line in raw.strip().splitlines()
+                    if line.strip()
+                ][:5]
+            except Exception:
+                pass
+
+        if not topic_names:
+            topic_names = [
+                f"Foundations of {label}",
+                f"Core Concepts in {label}",
+                f"Applied {label}",
+                f"Problem Solving in {label}",
+                f"Advanced Topics in {label}",
+            ]
+
+        path_topics = [
+            LearningPathTopic(
+                topic_id=f"{subject_id}-starter-{i+1}",
+                topic_name=name,
+                current_mastery=0.0,
+                target_mastery=self.TARGET_MASTERY,
+                sequence_order=i + 1,
+                explanation=f"You haven't studied {name} yet. Start here.",
+            )
+            for i, name in enumerate(topic_names)
+        ]
+        return LearningPath(
+            student_id=student_id,
+            subject_id=subject_id,
+            topics=path_topics,
+            overall_progress=0.0,
+        )
 
     @staticmethod
     def _explain(topic: Topic, mastery: float) -> str:

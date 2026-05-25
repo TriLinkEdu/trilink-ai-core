@@ -59,11 +59,18 @@ class RecommendationService:
         weak_topic_ids: list[str],
         difficulty: str = "medium",
         limit: int = 5,
+        subject_name: str = "",
+        grade_level: int = 9,
     ) -> list[dict]:
+        # ── No interaction yet: synthesize a grade-appropriate starter lesson ──
+        if not weak_topic_ids:
+            lesson = await self._generate_intro_lesson(subject_name, grade_level, difficulty)
+            return [lesson] if lesson else []
+
         resources = await self._recommender.recommend(weak_topic_ids, difficulty, limit)
 
         # Gap-fill: generate AI lesson if too few DB resources
-        if len(resources) < self.MIN_RESOURCES and weak_topic_ids:
+        if len(resources) < self.MIN_RESOURCES:
             lesson = await self._generate_and_save(weak_topic_ids[0], difficulty)
             if lesson:
                 resources.append(lesson)
@@ -96,6 +103,36 @@ class RecommendationService:
             return resource
         except Exception:
             return None  # generation failure is non-fatal
+
+    async def _generate_intro_lesson(self, subject_name: str, grade_level: int, difficulty: str) -> dict | None:
+        """Fallback for zero-interaction students: generate a grade-appropriate intro lesson."""
+        from core.models.topic import Topic
+        name = subject_name.strip() or "General Studies"
+        stub = Topic(
+            id=f"intro-{name.lower().replace(' ', '-')}",
+            name=f"Introduction to {name}",
+            subject=name,
+            subject_id="",
+            difficulty_tier=difficulty,
+            objectives=[f"Understand the fundamentals of {name} at Grade {grade_level} level"],
+            grade_level=grade_level,
+        )
+        try:
+            content = await self._generator.generate_lesson(stub)
+            return {
+                "resource_id": stub.id,
+                "title": stub.name,
+                "type": "lesson",
+                "topic_id": None,
+                "difficulty": difficulty,
+                "content": content,
+                "url": None,
+                "relevance_score": 1.0,
+                "avg_rating": 0.0,
+                "source": "ai_generated",
+            }
+        except Exception:
+            return None
 
     @staticmethod
     def _to_dict(r: Resource) -> dict:

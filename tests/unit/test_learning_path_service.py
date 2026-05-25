@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, AsyncMock
 from services.learning_path_service import LearningPathService
 from core.models.topic import Topic
 from core.models.mastery import TopicMastery
@@ -156,3 +156,69 @@ class TestLearningPathService:
         ]
         path = await svc.generate(STUDENT, SUBJECT)
         assert path.overall_progress == pytest.approx(0.5)
+
+
+class TestSynthesizeStarterPath:
+    """Tests for the no-topics-in-DB fallback."""
+
+    @pytest.mark.asyncio
+    async def test_no_topics_returns_starter_path_not_empty(self):
+        """No topics seeded: must never return empty topics or claim 100% progress."""
+        student_repo = MagicMock()
+        topic_repo   = MagicMock()
+        student_repo.get_all_masteries.return_value = []
+        topic_repo.get_by_subject.return_value = []  # nothing seeded
+        svc = LearningPathService(student_repo, topic_repo, generator=None)
+        path = await svc.generate(STUDENT, SUBJECT, subject_name="Physics")
+        assert len(path.topics) == 5
+        assert path.overall_progress == 0.0
+
+    @pytest.mark.asyncio
+    async def test_no_topics_subject_name_used_in_topic_names(self):
+        """Hardcoded fallback names must contain the subject name."""
+        student_repo = MagicMock()
+        topic_repo   = MagicMock()
+        student_repo.get_all_masteries.return_value = []
+        topic_repo.get_by_subject.return_value = []
+        svc = LearningPathService(student_repo, topic_repo, generator=None)
+        path = await svc.generate(STUDENT, SUBJECT, subject_name="Chemistry")
+        assert all("Chemistry" in t.topic_name for t in path.topics)
+
+    @pytest.mark.asyncio
+    async def test_no_topics_generator_called_when_present(self):
+        """When a generator is available, it should be called for topic names."""
+        student_repo = MagicMock()
+        topic_repo   = MagicMock()
+        student_repo.get_all_masteries.return_value = []
+        topic_repo.get_by_subject.return_value = []
+        gen = MagicMock()
+        gen._call_raw = AsyncMock(return_value="1. Atomic Structure\n2. Bonding\n3. Reactions\n4. Equilibrium\n5. Kinetics")
+        svc = LearningPathService(student_repo, topic_repo, generator=gen)
+        path = await svc.generate(STUDENT, SUBJECT, subject_name="Chemistry")
+        gen._call_raw.assert_called_once()
+        assert "Atomic Structure" in path.topics[0].topic_name
+
+    @pytest.mark.asyncio
+    async def test_no_topics_generator_failure_falls_back_to_hardcoded(self):
+        """If Groq fails, hardcoded fallback names are used — never crash."""
+        student_repo = MagicMock()
+        topic_repo   = MagicMock()
+        student_repo.get_all_masteries.return_value = []
+        topic_repo.get_by_subject.return_value = []
+        gen = MagicMock()
+        gen._call_raw = AsyncMock(side_effect=Exception("Groq down"))
+        svc = LearningPathService(student_repo, topic_repo, generator=gen)
+        path = await svc.generate(STUDENT, SUBJECT, subject_name="Biology")
+        assert len(path.topics) == 5
+        assert all("Biology" in t.topic_name for t in path.topics)
+
+    @pytest.mark.asyncio
+    async def test_no_topics_sequence_order_starts_at_one(self):
+        student_repo = MagicMock()
+        topic_repo   = MagicMock()
+        student_repo.get_all_masteries.return_value = []
+        topic_repo.get_by_subject.return_value = []
+        svc = LearningPathService(student_repo, topic_repo, generator=None)
+        path = await svc.generate(STUDENT, SUBJECT, subject_name="Math")
+        orders = [t.sequence_order for t in path.topics]
+        assert orders == list(range(1, len(orders) + 1))

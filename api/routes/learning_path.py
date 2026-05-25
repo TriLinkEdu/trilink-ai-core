@@ -11,12 +11,13 @@ def _svc(request: Request) -> LearningPathService:
     return LearningPathService(
         student_repo=StudentRepository(),
         topic_repo=TopicRepository(),
+        generator=request.app.state.registry.generator,
     )
 
 
 @router.post("", response_model=LearningPathResponse)
 async def generate_learning_path(body: LearningPathRequest, request: Request):
-    path = await _svc(request).generate(body.student_id, body.subject_id)
+    path = await _svc(request).generate(body.student_id, body.subject_id, subject_name=body.subject_name)
     return LearningPathResponse(
         student_id      =path.student_id,
         subject_id      =path.subject_id,

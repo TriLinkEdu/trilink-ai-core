@@ -22,6 +22,7 @@ def _svc(request: Request) -> RecommendationService:
 @router.post("", response_model=RecommendResponse)
 async def recommend_resources(body: RecommendRequest, request: Request):
     resources = await _svc(request).recommend(
-        body.student_id, body.weak_topic_ids, body.difficulty, body.limit
+        body.student_id, body.weak_topic_ids, body.difficulty, body.limit,
+        subject_name=body.subject_name, grade_level=body.grade_level,
     )
     return RecommendResponse(student_id=body.student_id, resources=resources)

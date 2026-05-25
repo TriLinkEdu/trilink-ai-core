@@ -92,7 +92,25 @@ class TestRecommendationService:
         assert isinstance(result, list)  # no crash
 
     @pytest.mark.asyncio
-    async def test_empty_topic_ids_returns_empty(self, svc, recommender):
-        recommender.recommend = AsyncMock(return_value=[])
-        result = await svc.recommend(STUDENT, [])
-        assert result == []
+    async def test_empty_topic_ids_returns_intro_lesson(self, svc, generator):
+        """Zero-interaction student: must always get a generated lesson, never empty."""
+        result = await svc.recommend(STUDENT, [], subject_name="Physics", grade_level=9)
+        generator.generate_lesson.assert_called_once()
+        assert len(result) == 1
+        assert result[0]["source"] == "ai_generated"
+        assert result[0]["type"] == "lesson"
+
+    @pytest.mark.asyncio
+    async def test_empty_topic_ids_groq_failure_still_non_fatal(self, recommender, resource_repo, topic_repo):
+        """If Groq is down, fallback returns [] gracefully instead of crashing."""
+        bad_generator = MagicMock()
+        bad_generator.generate_lesson = AsyncMock(side_effect=Exception("Groq down"))
+        svc = RecommendationService(recommender, bad_generator, resource_repo, topic_repo)
+        result = await svc.recommend(STUDENT, [], subject_name="Physics", grade_level=9)
+        assert isinstance(result, list)  # no crash
+
+    @pytest.mark.asyncio
+    async def test_empty_topic_ids_uses_subject_name_in_title(self, svc):
+        """Returned lesson title should mention the subject name."""
+        result = await svc.recommend(STUDENT, [], subject_name="Mathematics", grade_level=10)
+        assert "Mathematics" in result[0]["title"]

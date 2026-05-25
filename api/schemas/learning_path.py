@@ -4,6 +4,7 @@ from pydantic import BaseModel
 class LearningPathRequest(BaseModel):
     student_id: str
     subject_id: str
+    subject_name: str = ""
 
 
 class LearningPathTopicOut(BaseModel):
