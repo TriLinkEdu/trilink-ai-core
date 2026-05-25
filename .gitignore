@@ -20,6 +20,10 @@ htmlcov/
 .env
 .env.*
 !.env.example
+gcp-key.json
+*key*.json
+*credentials*.json
+service-account*.json
 
 # Editor/OS artifacts
 .vscode/
